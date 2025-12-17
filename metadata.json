@@ -1,0 +1,5 @@
+{
+  "name": "SyncFlow: Production & Sales Coordinator",
+  "description": "A collaborative platform balancing 'Make-to-Stock' and 'Make-to-Order' workflows. Features real-time inventory calculation, production line allocation, and AI-driven order parsing to eliminate opaque communication.",
+  "requestFramePermissions": []
+}

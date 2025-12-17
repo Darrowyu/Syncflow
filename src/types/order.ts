@@ -1,0 +1,51 @@
+export enum OrderStatus {
+  PENDING = 'Pending',
+  IN_PRODUCTION = 'InProduction',
+  READY_TO_SHIP = 'ReadyToShip',
+  CONFIRMED = 'Confirmed',
+  SHIPPED = 'Shipped',
+  DELAYED = 'Delayed',
+}
+
+export enum TradeType {
+  GENERAL = 'General Trade',
+  BONDED = 'Bonded',
+}
+
+export enum LoadingTimeSlot {
+  MORNING = 'Morning',
+  AFTERNOON = 'Afternoon',
+  FLEXIBLE = 'Flexible',
+}
+
+export enum WorkshopCommStatus {
+  NOT_STARTED = 'NotStarted',
+  IN_PROGRESS = 'InProgress',
+  CONFIRMED = 'Confirmed',
+  ISSUE = 'Issue',
+}
+
+export interface Order {
+  id: string;
+  date: string;
+  client: string;
+  styleNo: string;
+  piNo: string;
+  lineId?: number;
+  blNo?: string;
+  totalTons: number;
+  containers: number;
+  packagesPerContainer: number;
+  port: string;
+  contactPerson: string;
+  tradeType: TradeType;
+  requirements: string;
+  status: OrderStatus;
+  isLargeOrder: boolean;
+  largeOrderAck: boolean;
+  loadingTimeSlot?: LoadingTimeSlot; // 装货时间段
+  expectedShipDate?: string; // 预计发货日期
+  workshopCommStatus?: WorkshopCommStatus; // 车间沟通状态
+  workshopNote?: string; // 车间沟通备注
+  prepDaysRequired?: number; // 大货需提前备货天数
+}

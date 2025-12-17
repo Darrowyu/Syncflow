@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Order, OrderStatus, IncidentLog, LoadingTimeSlot, WorkshopCommStatus, InventoryItem, ProductLine, LineStatus } from '../../types';
 import { useLanguage } from '../../i18n';
 import { Truck, CheckCircle, AlertTriangle, AlertOctagon, Clock, Package, Edit2, Plus, Minus, History, Factory, Check, Trash2 } from 'lucide-react';
-import { Modal } from '../common';
+import { Modal, toast } from '../common';
 import { generateId } from '../../utils';
 
 interface WarehouseViewProps {
@@ -77,12 +77,12 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
     if (!showStockModal) return;
     const { type, styleNo } = showStockModal;
     try {
-      if (type === 'edit' && onUpdateStock) { await onUpdateStock(styleNo, stockForm.gradeA, stockForm.gradeB); }
+      if (type === 'edit' && onUpdateStock) { await onUpdateStock(styleNo, stockForm.gradeA, stockForm.gradeB); toast.success(t('toast_stock_adjust_success')); }
       else if (type === 'production' && onProductionIn) { await onProductionIn(styleNo, stockForm.quantity, stockForm.grade); }
       else if (type === 'in' && onStockIn) { await onStockIn(styleNo, stockForm.quantity, stockForm.grade, stockForm.source, stockForm.note); }
       else if (type === 'out' && onStockOut) { await onStockOut(styleNo, stockForm.quantity, stockForm.grade, stockForm.source, stockForm.note); }
       setShowStockModal(null);
-    } catch (e) { alert((e as Error).message); }
+    } catch (e) { /* useData hook已处理错误提示 */ }
   };
 
   const handleShowHistory = async (styleNo: string) => {

@@ -95,7 +95,14 @@ export const translations = {
     field_prep_days: "Prep Days Required", field_requirements: "Requirements", btn_save: "Save Changes",
     alert_status_100: "Fulfillment rate below 100%, cannot switch to this status", alert_status_fail: "Status update failed", alert_save_fail: "Save failed",
     alert_delete_confirm: "Are you sure you want to delete this order?", alert_delete_fail: "Delete failed", alert_excel_fail: "Excel file parsing failed, please check format",
-    lines_suffix: "Line"
+    lines_suffix: "Line",
+    // Toast messages
+    toast_order_saved: "Order saved", toast_status_updated: "Status updated", toast_large_order_ack: "Large order acknowledged",
+    toast_stock_in_success: "Stock in successful", toast_stock_out_success: "Stock out successful", toast_stock_adjust_success: "Stock adjusted",
+    toast_load_confirmed: "Loading confirmed", toast_incident_reported: "Incident reported", toast_incident_resolved: "Incident resolved", toast_incident_reopened: "Incident reopened", toast_incident_deleted: "Incident deleted",
+    toast_line_added: "Line added", toast_line_deleted: "Line deleted", toast_line_updated: "Line updated",
+    toast_style_added: "Style added", toast_style_updated: "Style updated", toast_style_deleted: "Style deleted",
+    toast_production_in: "Production stock in successful", toast_restore_success: "Data restored successfully"
   },
   zh: {
     nav_dashboard: "仪表盘", nav_orders: "订单管理", nav_production: "排产控制", nav_warehouse: "仓库作业", nav_help: "使用指南",
@@ -190,7 +197,14 @@ export const translations = {
     field_prep_days: "提前备货天数", field_requirements: "装货要求", btn_save: "保存修改",
     alert_status_100: "满足率不足100%，无法切换到此状态", alert_status_fail: "状态更新失败", alert_save_fail: "保存失败",
     alert_delete_confirm: "确定要删除此订单吗？", alert_delete_fail: "删除失败", alert_excel_fail: "Excel文件解析失败，请确保格式正确",
-    lines_suffix: "线"
+    lines_suffix: "线",
+    // Toast messages
+    toast_order_saved: "订单已保存", toast_status_updated: "状态已更新", toast_large_order_ack: "已确认大单",
+    toast_stock_in_success: "入库成功", toast_stock_out_success: "出库成功", toast_stock_adjust_success: "库存已调整",
+    toast_load_confirmed: "装车已确认", toast_incident_reported: "异常已上报", toast_incident_resolved: "异常已处理", toast_incident_reopened: "异常已重新打开", toast_incident_deleted: "异常已删除",
+    toast_line_added: "产线已添加", toast_line_deleted: "产线已删除", toast_line_updated: "产线已更新",
+    toast_style_added: "款号已添加", toast_style_updated: "款号已更新", toast_style_deleted: "款号已删除",
+    toast_production_in: "生产入库成功", toast_restore_success: "数据恢复成功"
   }
 };
 

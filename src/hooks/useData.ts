@@ -97,12 +97,14 @@ export function useData() {
     const newId = typeof res.id === 'string' ? parseInt(res.id, 10) : res.id;
     const newLine: ProductLine = { id: newId, name: data.name || `Line ${newId}`, status: data.status || LineStatus.STOPPED, currentStyle: data.currentStyle || '-', dailyCapacity: data.dailyCapacity || 0, exportCapacity: data.exportCapacity || 0, subLines: data.subLines || [] };
     setLines(prev => [...prev, newLine]);
+    toast.success('产线已添加');
     return newId;
   }, []);
 
   const removeLine = useCallback(async (id: number) => {
     await apiDeleteLine(id);
     setLines(prev => prev.filter(l => l.id !== id));
+    toast.success('产线已删除');
   }, []);
 
   const addOrders = useCallback(async (newOrders: Order[]) => {
@@ -122,16 +124,19 @@ export function useData() {
   const addStyle = useCallback(async (data: Omit<Style, 'id'>) => {
     await apiCreateStyle(data);
     await loadData();
+    toast.success('款号已添加');
   }, [loadData]);
 
   const updateStyleData = useCallback(async (id: number, data: Partial<Style>) => {
     await apiUpdateStyle(id, data);
     setStyles(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
+    toast.success('款号已更新');
   }, []);
 
   const removeStyle = useCallback(async (id: number) => {
     await apiDeleteStyle(id);
     setStyles(prev => prev.filter(s => s.id !== id));
+    toast.success('款号已删除');
   }, []);
 
   const stockIn = useCallback(async (styleNo: string, quantity: number, grade?: string, source?: string, note?: string) => {
@@ -187,11 +192,13 @@ export function useData() {
   const resolveIncident = useCallback(async (id: string, resolved: boolean) => {
     await apiResolveIncident(id, resolved);
     setIncidents(prev => prev.map(i => i.id === id ? { ...i, resolved, resolvedAt: resolved ? new Date().toISOString() : undefined } : i));
+    toast.success(resolved ? '异常已处理' : '异常已重新打开');
   }, []);
 
   const removeIncident = useCallback(async (id: string) => {
     await apiDeleteIncident(id);
     setIncidents(prev => prev.filter(i => i.id !== id));
+    toast.success('异常已删除');
   }, []);
 
   return { orders, setOrders, lines, inventory, incidents, styles, loading, error, acknowledgeOrder, confirmLoad, updateWorkshop, updateLine: updateLineData, addLine, removeLine, addOrders, logIncident, resolveIncident, removeIncident, addStyle, updateStyle: updateStyleData, removeStyle, reload: loadData, stockIn, stockOut, updateStock, getTransactions, productionIn, completeProduction };

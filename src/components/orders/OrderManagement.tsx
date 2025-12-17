@@ -50,14 +50,15 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
   // 更新订单状态（满足率不足100%时禁止切换到齐料待发和已出货）
   const handleUpdateStatus = async (id: string, status: OrderStatus, percent: number) => {
     if ((status === OrderStatus.READY_TO_SHIP || status === OrderStatus.SHIPPED) && percent < 100) {
-      alert(t('alert_status_100'));
+      toast.warning(t('alert_status_100'));
       return;
     }
     try {
       await patchOrder(id, { status });
       setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+      toast.success(t('toast_status_updated'));
     } catch (e) {
-      alert(t('alert_status_fail'));
+      toast.error(t('alert_status_fail'));
     }
   };
 
@@ -231,8 +232,9 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
       setOrders(prev => prev.map(o => o.id === editingOrder.id ? updatedOrder : o));
       setShowEditModal(false);
       setEditingOrder(null);
+      toast.success(t('toast_order_saved'));
     } catch (e) {
-      alert(t('alert_save_fail'));
+      toast.error(t('alert_save_fail'));
     }
   };
 

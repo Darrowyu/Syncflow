@@ -96,6 +96,10 @@ export const translations = {
     alert_status_100: "Fulfillment rate below 100%, cannot switch to this status", alert_status_fail: "Status update failed", alert_save_fail: "Save failed",
     alert_delete_confirm: "Are you sure you want to delete this order?", alert_delete_fail: "Delete failed", alert_excel_fail: "Excel file parsing failed, please check format",
     lines_suffix: "Line",
+    // AI Settings
+    ai_settings: "AI Settings", ai_provider: "AI Provider", ai_key_placeholder: "Enter API Key (leave empty to use default)",
+    ai_save_config: "Save AI Config", ai_config_saved: "AI config saved", ai_config_cleared: "AI config cleared, using default",
+    ai_config_desc: "Configure your own API Key. Supports Gemini and DeepSeek. Leave empty to use system default.",
     // Toast messages
     toast_order_saved: "Order saved", toast_status_updated: "Status updated", toast_large_order_ack: "Large order acknowledged",
     toast_stock_in_success: "Stock in successful", toast_stock_out_success: "Stock out successful", toast_stock_adjust_success: "Stock adjusted",
@@ -198,6 +202,10 @@ export const translations = {
     alert_status_100: "满足率不足100%，无法切换到此状态", alert_status_fail: "状态更新失败", alert_save_fail: "保存失败",
     alert_delete_confirm: "确定要删除此订单吗？", alert_delete_fail: "删除失败", alert_excel_fail: "Excel文件解析失败，请确保格式正确",
     lines_suffix: "线",
+    // AI Settings
+    ai_settings: "AI 设置", ai_provider: "AI 服务商", ai_key_placeholder: "输入API Key（留空使用默认配置）",
+    ai_save_config: "保存AI配置", ai_config_saved: "AI配置已保存", ai_config_cleared: "AI配置已清除，使用默认配置",
+    ai_config_desc: "配置您自己的API Key，支持Gemini和DeepSeek。留空则使用系统默认配置。",
     // Toast messages
     toast_order_saved: "订单已保存", toast_status_updated: "状态已更新", toast_large_order_ack: "已确认大单",
     toast_stock_in_success: "入库成功", toast_stock_out_success: "出库成功", toast_stock_adjust_success: "库存已调整",

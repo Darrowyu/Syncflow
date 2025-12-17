@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
-import { Download, Upload, Database, AlertTriangle, Check, Settings, Printer, Keyboard, Moon, Sun, Monitor } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Download, Upload, Database, AlertTriangle, Check, Settings, Keyboard, Moon, Sun, Monitor, Bot, Eye, EyeOff } from 'lucide-react';
 import { downloadBackup, restoreBackup } from '../../services/api';
+import { getAIConfig, saveAIConfig, clearAIConfig, AIProvider, AIConfig } from '../../services';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { Modal } from './Modal';
@@ -11,9 +12,17 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
     const [isExporting, setIsExporting] = useState(false);
     const [isRestoring, setIsRestoring] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [aiProvider, setAiProvider] = useState<AIProvider>('gemini');
+    const [aiApiKey, setAiApiKey] = useState('');
+    const [showApiKey, setShowApiKey] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { theme, setTheme, isDark } = useTheme();
-    const { t, language, setLanguage } = useLanguage();
+    const { theme, setTheme } = useTheme();
+    const { t } = useLanguage();
+
+    useEffect(() => {
+        const config = getAIConfig();
+        if (config) { setAiProvider(config.provider); setAiApiKey(config.apiKey); }
+    }, []);
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -47,6 +56,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
         }
     };
 
+    const handleSaveAI = () => {
+        if (aiApiKey.trim()) { saveAIConfig({ provider: aiProvider, apiKey: aiApiKey.trim() }); setMessage({ type: 'success', text: t('ai_config_saved') }); }
+        else { clearAIConfig(); setMessage({ type: 'success', text: t('ai_config_cleared') }); }
+    };
+
     const shortcuts = [
         { key: 'Alt + 1~5', desc: t('shortcut_switch_page') },
         { key: 'Alt + D', desc: t('shortcut_dark_mode') },
@@ -56,6 +70,28 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
     return (
         <Modal isOpen onClose={onClose} title={t('settings_title')} titleIcon={<Settings size={20} />}>
             <div className="space-y-6">
+                <section>
+                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center"><Bot size={16} className="mr-2" />{t('ai_settings')}</h4>
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('ai_provider')}</label>
+                            <div className="flex space-x-2">
+                                {[{ value: 'gemini' as AIProvider, label: 'Gemini' }, { value: 'deepseek' as AIProvider, label: 'DeepSeek' }].map(opt => (
+                                    <button key={opt.value} onClick={() => setAiProvider(opt.value)} className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${aiProvider === opt.value ? 'bg-indigo-100 border-indigo-300 text-indigo-700 dark:bg-indigo-900 dark:border-indigo-700 dark:text-indigo-300' : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'}`}>{opt.label}</button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">API Key</label>
+                            <div className="relative">
+                                <input type={showApiKey ? 'text' : 'password'} value={aiApiKey} onChange={e => setAiApiKey(e.target.value)} placeholder={t('ai_key_placeholder')} className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 pr-10 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                <button onClick={() => setShowApiKey(!showApiKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">{showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+                            </div>
+                        </div>
+                        <button onClick={handleSaveAI} className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition text-sm">{t('ai_save_config')}</button>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{t('ai_config_desc')}</p>
+                    </div>
+                </section>
                 <section>
                     <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center"><Moon size={16} className="mr-2" />{t('theme_settings')}</h4>
                     <div className="flex space-x-2">

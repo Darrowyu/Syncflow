@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Order, InventoryItem, ProductLine, LoadingTimeSlot, WorkshopCommStatus, TradeType, OrderStatus } from '../../types';
-import { AlertCircle, Bot, Loader2, MessageSquare, ChevronDown, ChevronUp, Upload, FileSpreadsheet, Edit2, Trash2, Package, Truck, Calendar, Download, CheckSquare, Square, Printer } from 'lucide-react';
+import { AlertCircle, Bot, Loader2, MessageSquare, ChevronDown, ChevronUp, Upload, FileSpreadsheet, Edit2, Trash2, Package, Truck, Calendar, Download, Printer } from 'lucide-react';
+import { useIsMobile } from '../../hooks';
 import { parseOrderText, patchOrder, createOrder, deleteOrder } from '../../services';
 import { invalidateCache } from '../../services/api';
 import { toast } from '../common/Toast';
@@ -40,6 +41,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
   const { t } = useLanguage();
+  const isMobile = useIsMobile();
 
   // 筛选订单
   const allOrders = useMemo(() => orders.filter(o => o.status !== OrderStatus.SHIPPED), [orders]);
@@ -255,23 +257,26 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
   const getTimeText = (s?: LoadingTimeSlot) => s === LoadingTimeSlot.MORNING ? t('loading_morning') : s === LoadingTimeSlot.AFTERNOON ? t('loading_afternoon') : t('loading_flexible');
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center flex-wrap gap-2">
-        <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex">
-          <button onClick={() => setViewMode('table')} className={`px-3 py-1.5 rounded text-sm font-medium transition ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('view_table')}</button>
-          <button onClick={() => setViewMode('calendar')} className={`px-3 py-1.5 rounded text-sm font-medium transition flex items-center ${viewMode === 'calendar' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}><Calendar size={14} className="mr-1" />{t('view_calendar')}</button>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <div className="space-y-4 md:space-y-6">
+      {/* 工具栏 - 移动端优化 */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex flex-shrink-0">
+            <button onClick={() => setViewMode('table')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('view_table')}</button>
+            <button onClick={() => setViewMode('calendar')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${viewMode === 'calendar' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}><Calendar size={14} className="mr-1" />{isMobile ? '' : t('view_calendar')}</button>
+          </div>
           {viewMode === 'table' && (
-            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex">
-              <button onClick={() => setActiveTab('all')} className={`px-3 py-1.5 rounded text-sm font-medium transition flex items-center ${activeTab === 'all' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}><Package size={14} className="mr-1" />{t('tab_pending')} <span className="ml-1 text-xs bg-slate-200 dark:bg-slate-600 px-1.5 rounded">{allOrders.length}</span></button>
-              <button onClick={() => setActiveTab('ready')} className={`px-3 py-1.5 rounded text-sm font-medium transition flex items-center ${activeTab === 'ready' ? 'bg-white dark:bg-slate-700 shadow text-green-600' : 'text-slate-600 dark:text-slate-400'}`}><Truck size={14} className="mr-1" />{t('tab_ready')} <span className="ml-1 text-xs bg-green-100 text-green-700 px-1.5 rounded">{readyOrders.length}</span></button>
-              <button onClick={() => setActiveTab('shipped')} className={`px-3 py-1.5 rounded text-sm font-medium transition flex items-center ${activeTab === 'shipped' ? 'bg-white dark:bg-slate-700 shadow text-slate-600' : 'text-slate-600 dark:text-slate-400'}`}>{t('tab_shipped')} <span className="ml-1 text-xs bg-slate-200 dark:bg-slate-600 px-1.5 rounded">{shippedOrders.length}</span></button>
+            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex flex-shrink-0">
+              <button onClick={() => setActiveTab('all')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'all' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '' : <Package size={14} className="mr-1" />}{isMobile ? t('tab_pending') : t('tab_pending')} <span className="ml-1 text-xs bg-slate-200 dark:bg-slate-600 px-1 rounded">{allOrders.length}</span></button>
+              <button onClick={() => setActiveTab('ready')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'ready' ? 'bg-white dark:bg-slate-700 shadow text-green-600' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '' : <Truck size={14} className="mr-1" />}{isMobile ? t('tab_ready') : t('tab_ready')} <span className="ml-1 text-xs bg-green-100 text-green-700 px-1 rounded">{readyOrders.length}</span></button>
+              <button onClick={() => setActiveTab('shipped')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'shipped' ? 'bg-white dark:bg-slate-700 shadow text-slate-600' : 'text-slate-600 dark:text-slate-400'}`}>{t('tab_shipped')} <span className="ml-1 text-xs bg-slate-200 dark:bg-slate-600 px-1 rounded">{shippedOrders.length}</span></button>
             </div>
           )}
-          <button onClick={() => exportOrdersToExcel(displayOrders)} className="flex items-center px-3 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition" title={t('btn_export')}><Download size={16} className="mr-1" />{t('btn_export')}</button>
-          <button onClick={() => setShowExcelModal(true)} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"><Upload size={18} className="mr-2" />{t('btn_import')}</button>
-          <button onClick={() => setShowParseModal(true)} className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"><Bot size={18} className="mr-2" />{t('btn_import_ai')}</button>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {!isMobile && <button onClick={() => exportOrdersToExcel(displayOrders)} className="flex items-center px-3 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition text-sm" title={t('btn_export')}><Download size={16} className="mr-1" />{t('btn_export')}</button>}
+          <button onClick={() => setShowExcelModal(true)} className="flex items-center px-3 md:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"><Upload size={16} className="mr-1 md:mr-2" />{isMobile ? '' : t('btn_import')}</button>
+          <button onClick={() => setShowParseModal(true)} className="flex items-center px-3 md:px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm"><Bot size={16} className="mr-1 md:mr-2" />{isMobile ? 'AI' : t('btn_import_ai')}</button>
         </div>
       </div>
 
@@ -380,7 +385,65 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
         )}
       </Modal>
 
-      {viewMode === 'table' && (
+      {/* 移动端卡片视图 */}
+      {viewMode === 'table' && isMobile && (
+        <div className="space-y-3">
+          {displayOrders.length === 0 && <div className="text-center py-8 text-slate-400">{t('no_orders_load')}</div>}
+          {displayOrders.map((order) => {
+            const { percent, isShortage } = calculateFulfillment(order, inventory, lines);
+            return (
+              <div key={order.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3" onClick={() => handleOpenEdit(order)}>
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="font-semibold text-slate-800 dark:text-slate-100 truncate">{order.client}</span>
+                      {order.isLargeOrder && <span className="text-xs bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 px-1 rounded">{t('tag_large')}</span>}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded text-xs font-mono">{order.styleNo}</span>
+                      <span className="text-xs text-slate-500">{order.date}</span>
+                    </div>
+                  </div>
+                  <select value={order.status} onChange={(e) => { e.stopPropagation(); handleUpdateStatus(order.id, e.target.value as OrderStatus, percent); }} onClick={(e) => e.stopPropagation()} className={`px-2 py-1 rounded text-xs border-none ${getStatusColor(order.status)}`}>
+                    <option value={OrderStatus.PENDING}>{t('status_pending')}</option>
+                    <option value={OrderStatus.IN_PRODUCTION}>{t('status_in_production')}</option>
+                    <option value={OrderStatus.READY_TO_SHIP} disabled={percent < 100}>{t('status_ready_to_ship')}</option>
+                    <option value={OrderStatus.SHIPPED} disabled={percent < 100}>{t('status_shipped')}</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                    <span className="font-mono font-medium">{order.totalTons}t</span>
+                    <span>{order.containers}柜</span>
+                    <span className="text-xs text-slate-400">{order.port}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-12 bg-slate-200 dark:bg-slate-600 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${isShortage ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(percent, 100)}%` }} /></div>
+                    <span className={`text-xs ${isShortage ? 'text-red-500' : 'text-green-600'}`}>{percent.toFixed(0)}%</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  {order.isLargeOrder && !order.largeOrderAck ? (
+                    <button onClick={(e) => { e.stopPropagation(); onAcknowledgeOrder(order.id); }} className="px-2 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded text-xs font-semibold animate-pulse flex items-center"><AlertCircle size={12} className="mr-1" />{t('btn_ack_large')}</button>
+                  ) : <span />}
+                  <div className="flex items-center gap-1">
+                    <button onClick={(e) => { e.stopPropagation(); setPrintOrder(order); }} className="p-1.5 text-slate-400 hover:text-blue-600"><Printer size={16} /></button>
+                    {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="p-1.5 text-slate-400 hover:text-red-500"><Trash2 size={16} /></button>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {/* 移动端合计 */}
+          <div className="bg-slate-100 dark:bg-slate-900 rounded-lg p-3 text-sm flex justify-between">
+            <span className="text-slate-500">{t('total_summary')} ({displayOrders.length})</span>
+            <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{displayOrders.reduce((sum, o) => sum + o.totalTons, 0).toFixed(1)}t / {displayOrders.reduce((sum, o) => sum + o.containers, 0)}柜</span>
+          </div>
+        </div>
+      )}
+
+      {/* 桌面端表格视图 */}
+      {viewMode === 'table' && !isMobile && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-slate-700">

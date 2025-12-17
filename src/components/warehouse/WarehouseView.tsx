@@ -4,6 +4,7 @@ import { useLanguage } from '../../i18n';
 import { Truck, CheckCircle, AlertTriangle, AlertOctagon, Clock, Package, Edit2, Plus, Minus, History, Factory, Check, Trash2 } from 'lucide-react';
 import { Modal, toast } from '../common';
 import { generateId } from '../../utils';
+import { useIsMobile } from '../../hooks';
 
 interface WarehouseViewProps {
   orders: Order[];
@@ -25,6 +26,7 @@ interface Transaction { id: number; styleNo: string; type: string; grade?: strin
 
 const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines, incidents, onConfirmLoad, onLogIncident, onResolveIncident, onDeleteIncident, onStockIn, onStockOut, onUpdateStock, onGetTransactions, onProductionIn }) => {
   const { t } = useLanguage();
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<'orders' | 'inventory' | 'incidents'>('inventory');
   const [showIncidentModal, setShowIncidentModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -94,17 +96,54 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
+      {/* 标签页切换 - 移动端优化 */}
       <div className="flex justify-end items-center">
         <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex">
-          <button onClick={() => setActiveTab('inventory')} className={`px-4 py-1.5 rounded text-sm font-medium transition ${activeTab === 'inventory' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('inv_title')}</button>
-          <button onClick={() => setActiveTab('orders')} className={`px-4 py-1.5 rounded text-sm font-medium transition ${activeTab === 'orders' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('wh_pending_load')}</button>
-          <button onClick={() => setActiveTab('incidents')} className={`px-4 py-1.5 rounded text-sm font-medium transition ${activeTab === 'incidents' ? 'bg-white dark:bg-slate-700 shadow text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('incident_log')}</button>
+          <button onClick={() => setActiveTab('inventory')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${activeTab === 'inventory' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '库存' : t('inv_title')}</button>
+          <button onClick={() => setActiveTab('orders')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${activeTab === 'orders' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '待装车' : t('wh_pending_load')}</button>
+          <button onClick={() => setActiveTab('incidents')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${activeTab === 'incidents' ? 'bg-white dark:bg-slate-700 shadow text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '异常' : t('incident_log')}</button>
         </div>
       </div>
 
-      {/* 库存管理Tab */}
-      {activeTab === 'inventory' && (
+      {/* 库存管理Tab - 移动端卡片视图 */}
+      {activeTab === 'inventory' && isMobile && (
+        <div className="space-y-3">
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 px-4 py-3 rounded-xl flex items-center">
+            <Package className="text-emerald-600 dark:text-emerald-400 mr-2" size={18}/><h3 className="font-semibold text-emerald-900 dark:text-emerald-100 text-sm">{t('inv_title')}</h3>
+            <span className="ml-2 bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs px-1.5 py-0.5 rounded-full font-bold">{inventory.length}</span>
+          </div>
+          {inventory.length === 0 && <div className="text-center py-8 text-slate-400">{t('inv_no_data')}</div>}
+          {inventory.map(item => {
+            const production = getStyleProduction(item.styleNo);
+            return (
+              <div key={item.styleNo} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{item.styleNo}</span>
+                  <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{item.currentStock.toFixed(1)}t</span>
+                </div>
+                <div className="flex items-center justify-between text-xs mb-2">
+                  <div className="flex gap-3">
+                    <span className="text-emerald-600 dark:text-emerald-400">A: {(item.gradeA || 0).toFixed(1)}t</span>
+                    <span className="text-blue-600 dark:text-blue-400">B: {(item.gradeB || 0).toFixed(1)}t</span>
+                  </div>
+                  {production > 0 && <span className="text-indigo-600 dark:text-indigo-400">产能: {production.toFixed(1)}t</span>}
+                </div>
+                <div className="flex items-center justify-end gap-1 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  {production > 0 && onProductionIn && <button onClick={() => handleOpenStockModal('production', item.styleNo)} className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded flex items-center"><Factory size={12} className="mr-1" />入库</button>}
+                  {onStockIn && <button onClick={() => handleOpenStockModal('in', item.styleNo)} className="p-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/50 rounded"><Plus size={14} /></button>}
+                  {onStockOut && <button onClick={() => handleOpenStockModal('out', item.styleNo)} className="p-1.5 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/50 rounded"><Minus size={14} /></button>}
+                  {onUpdateStock && <button onClick={() => handleOpenStockModal('edit', item.styleNo)} className="p-1.5 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 rounded"><Edit2 size={14} /></button>}
+                  {onGetTransactions && <button onClick={() => handleShowHistory(item.styleNo)} className="p-1.5 text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/50 rounded"><History size={14} /></button>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 库存管理Tab - 桌面端表格 */}
+      {activeTab === 'inventory' && !isMobile && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
           <div className="bg-emerald-50 dark:bg-emerald-900/30 px-6 py-4 border-b border-emerald-100 dark:border-emerald-800 flex items-center justify-between">
             <div className="flex items-center">
@@ -156,8 +195,53 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
       )}
 
 
-      {/* 待装车Tab */}
-      {activeTab === 'orders' && (
+      {/* 待装车Tab - 移动端卡片视图 */}
+      {activeTab === 'orders' && isMobile && (
+        <div className="space-y-3">
+          <div className="bg-indigo-50 dark:bg-indigo-900/30 px-4 py-3 rounded-xl flex items-center">
+            <Truck className="text-indigo-600 dark:text-indigo-400 mr-2" size={18}/><h3 className="font-semibold text-indigo-900 dark:text-indigo-100 text-sm">{t('wh_pending_load')}</h3>
+            <span className="ml-2 bg-indigo-200 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200 text-xs px-1.5 py-0.5 rounded-full font-bold">{pendingLoadOrders.length}</span>
+          </div>
+          {pendingLoadOrders.length === 0 && <div className="text-center py-8 text-slate-400">{t('no_orders_load')}</div>}
+          {pendingLoadOrders.map(order => (
+            <div key={order.id} className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 ${!getWorkshopStatusOk(order.workshopCommStatus) ? 'border-l-4 border-l-amber-400' : ''}`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-slate-800 dark:text-slate-100">{order.client}</span>
+                <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{order.styleNo}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+                <div><span className="text-slate-400">总量:</span> <span className="font-semibold">{order.totalTons}t</span></div>
+                <div><span className="text-slate-400">柜数:</span> {order.containers}柜</div>
+                <div><span className="text-slate-400">港口:</span> {order.port || '-'}</div>
+                <div className="flex items-center"><Clock size={10} className="mr-1 text-slate-400"/>{getLoadingTimeText(order.loadingTimeSlot)}</div>
+              </div>
+              {order.isLargeOrder && <span className="inline-block bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 px-2 py-0.5 rounded text-xs font-bold mb-2">{t('tag_large')}</span>}
+              {!getWorkshopStatusOk(order.workshopCommStatus) && <span className="inline-block ml-1 text-xs text-amber-600 bg-amber-100 px-2 py-0.5 rounded mb-2">{t('ws_in_progress')}</span>}
+              <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <button onClick={() => handleOpenIncident(order)} className="flex-1 flex items-center justify-center px-2 py-1.5 border border-red-200 text-red-600 rounded text-xs"><AlertTriangle size={12} className="mr-1" />异常</button>
+                <button onClick={() => onConfirmLoad(order.id)} className="flex-1 flex items-center justify-center px-2 py-1.5 bg-green-600 text-white rounded text-xs"><CheckCircle size={12} className="mr-1" />确认装车</button>
+              </div>
+            </div>
+          ))}
+          {shippedOrders.length > 0 && (
+            <>
+              <div className="bg-green-50 dark:bg-green-900/30 px-4 py-3 rounded-xl flex items-center mt-4">
+                <Package className="text-green-600 dark:text-green-400 mr-2" size={18}/><h3 className="font-semibold text-green-900 dark:text-green-100 text-sm">{t('wh_shipped_today')}</h3>
+                <span className="ml-2 bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 text-xs px-1.5 py-0.5 rounded-full font-bold">{shippedOrders.length}</span>
+              </div>
+              {shippedOrders.map(o => (
+                <div key={o.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 opacity-70">
+                  <div className="flex items-center justify-between"><span className="font-medium text-slate-700 dark:text-slate-200">{o.client}</span><span className="font-mono text-xs">{o.styleNo}</span></div>
+                  <div className="flex items-center justify-between text-xs text-slate-500 mt-1"><span>{o.totalTons}t · {o.containers}柜</span><span>{o.port}</span></div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 待装车Tab - 桌面端 */}
+      {activeTab === 'orders' && !isMobile && (
         <>
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
             <div className="bg-indigo-50 dark:bg-indigo-900/30 px-6 py-4 border-b border-indigo-100 dark:border-indigo-800 flex items-center">
@@ -216,8 +300,35 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
         </>
       )}
 
-      {/* 异常记录Tab */}
-      {activeTab === 'incidents' && (
+      {/* 异常记录Tab - 移动端卡片视图 */}
+      {activeTab === 'incidents' && isMobile && (
+        <div className="space-y-3">
+          <div className="bg-red-50 dark:bg-red-900/30 px-4 py-3 rounded-xl flex items-center">
+            <AlertOctagon className="text-red-600 dark:text-red-400 mr-2" size={18}/><h3 className="font-semibold text-red-900 dark:text-red-100 text-sm">{t('incident_log')}</h3>
+            <span className="ml-2 bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 text-xs px-1.5 py-0.5 rounded-full font-bold">{incidents.length}</span>
+          </div>
+          {incidents.length === 0 && <div className="text-center py-8 text-slate-400">{t('no_incidents')}</div>}
+          {incidents.map(inc => (
+            <div key={inc.id} className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 ${inc.resolved ? 'opacity-60' : ''}`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{inc.styleNo}</span>
+                {inc.resolved ? <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">{t('status_resolved')}</span> : <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs">{t('status_pending_resolve')}</span>}
+              </div>
+              <div className="text-xs text-slate-500 mb-2">{inc.orderClient || '-'} · {inc.timestamp}</div>
+              <div className="text-sm text-red-600 dark:text-red-400 font-medium mb-1">{t(`reason_${inc.reason}` as any) || inc.reason}</div>
+              {inc.note && <div className="text-xs text-slate-500 bg-slate-50 dark:bg-slate-900 p-2 rounded mb-2">{inc.note}</div>}
+              <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                {!inc.resolved && onResolveIncident && <button onClick={() => onResolveIncident(inc.id, true)} className="flex-1 flex items-center justify-center px-2 py-1.5 bg-green-100 text-green-700 rounded text-xs"><Check size={12} className="mr-1" />已解决</button>}
+                {inc.resolved && onResolveIncident && <button onClick={() => onResolveIncident(inc.id, false)} className="flex-1 flex items-center justify-center px-2 py-1.5 bg-orange-100 text-orange-700 rounded text-xs"><AlertTriangle size={12} className="mr-1" />重开</button>}
+                {onDeleteIncident && <button onClick={() => { if (confirm(t('confirm_delete_record'))) onDeleteIncident(inc.id); }} className="px-3 py-1.5 text-slate-400 hover:text-red-500 rounded text-xs"><Trash2 size={14} /></button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 异常记录Tab - 桌面端表格 */}
+      {activeTab === 'incidents' && !isMobile && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
           <div className="bg-red-50 dark:bg-red-900/30 px-6 py-4 border-b border-red-100 dark:border-red-800 flex items-center">
             <AlertOctagon className="text-red-600 dark:text-red-400 mr-2" size={20}/><h3 className="font-semibold text-red-900 dark:text-red-100">{t('incident_log')}</h3>

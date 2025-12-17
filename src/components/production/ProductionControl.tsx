@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ProductLine, LineStatus, Style } from '../../types';
-import { Plus, Trash2, Package, Edit2, Factory, Activity, TrendingUp, ChevronDown, ChevronUp, Clock, History, ArrowRight, GitBranch, X } from 'lucide-react';
+import { Plus, Trash2, Package, Edit2, Factory, Activity, TrendingUp, ChevronDown, ChevronUp, History, ArrowRight, GitBranch, X } from 'lucide-react';
 import { useLanguage } from '../../i18n';
-import { calculateExportCapacity } from '../../utils';
 import { Modal } from '../common';
 import { fetchStyleLogs } from '../../services/api';
+import { useIsMobile } from '../../hooks';
 
 interface StyleChangeLog { id: number; lineId: number; fromStyle: string; toStyle: string; changedAt: string; }
 
@@ -33,6 +33,7 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
   const [historyLineId, setHistoryLineId] = useState<number | null>(null);
   const [styleLogs, setStyleLogs] = useState<StyleChangeLog[]>([]);
   const [editingLine, setEditingLine] = useState<ProductLine | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (historyLineId) {
@@ -115,63 +116,63 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
   }, 0);
 
   return (
-    <div className="space-y-6">
-      {/* 顶部总览 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+    <div className="space-y-4 md:space-y-6">
+      {/* 顶部总览 - 移动端2x2，桌面端横排 */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/50 rounded-lg flex items-center justify-center"><Factory size={20} className="text-indigo-600 dark:text-indigo-400" /></div>
-            <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{lines.length}</span>
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-50 dark:bg-indigo-900/50 rounded-lg flex items-center justify-center"><Factory size={isMobile ? 16 : 20} className="text-indigo-600 dark:text-indigo-400" /></div>
+            <span className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">{lines.length}</span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{t('total_lines')}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 md:mt-2">{t('total_lines')}</p>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-green-50 dark:bg-green-900/50 rounded-lg flex items-center justify-center"><Activity size={20} className="text-green-600 dark:text-green-400" /></div>
-            <span className="text-2xl font-bold text-green-600 dark:text-green-400">{runningLinesCount}</span>
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-green-50 dark:bg-green-900/50 rounded-lg flex items-center justify-center"><Activity size={isMobile ? 16 : 20} className="text-green-600 dark:text-green-400" /></div>
+            <span className="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">{runningLinesCount}</span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{t('running_lines')}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 md:mt-2">{t('running_lines')}</p>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/50 rounded-lg flex items-center justify-center"><TrendingUp size={20} className="text-blue-600 dark:text-blue-400" /></div>
-            <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{totalCapacity.toFixed(0)}t</span>
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-50 dark:bg-blue-900/50 rounded-lg flex items-center justify-center"><TrendingUp size={isMobile ? 16 : 20} className="text-blue-600 dark:text-blue-400" /></div>
+            <span className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">{totalCapacity.toFixed(0)}t</span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{t('total_capacity_day')}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 md:mt-2">{isMobile ? '产能/日' : t('total_capacity_day')}</p>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/50 rounded-lg flex items-center justify-center"><TrendingUp size={20} className="text-emerald-600 dark:text-emerald-400" /></div>
-            <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{totalExportCapacity.toFixed(1)}t</span>
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-50 dark:bg-emerald-900/50 rounded-lg flex items-center justify-center"><TrendingUp size={isMobile ? 16 : 20} className="text-emerald-600 dark:text-emerald-400" /></div>
+            <span className="text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{totalExportCapacity.toFixed(1)}t</span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{t('export_available_day')}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 md:mt-2">{isMobile ? '外贸/日' : t('export_available_day')}</p>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4 col-span-2 md:col-span-1">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-purple-50 dark:bg-purple-900/50 rounded-lg flex items-center justify-center"><Package size={20} className="text-purple-600 dark:text-purple-400" /></div>
-            <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{styles.length}</span>
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-50 dark:bg-purple-900/50 rounded-lg flex items-center justify-center"><Package size={isMobile ? 16 : 20} className="text-purple-600 dark:text-purple-400" /></div>
+            <span className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">{styles.length}</span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{t('style_count')}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 md:mt-2">{t('style_count')}</p>
         </div>
       </div>
 
       {/* 款号产能详情折叠面板 */}
       {styleCapacityData.length > 0 && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <button onClick={() => setShowStyleCapacity(!showStyleCapacity)} className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+          <button onClick={() => setShowStyleCapacity(!showStyleCapacity)} className="w-full px-3 md:px-4 py-2.5 md:py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700 transition">
             <div className="flex items-center space-x-2">
-              <Package size={18} className="text-indigo-600 dark:text-indigo-400" />
-              <span className="font-medium text-slate-700 dark:text-slate-200">{t('style_capacity_dist')}</span>
-              <span className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-2 py-0.5 rounded-full">{styleCapacityData.length} {t('styles_in_production')}</span>
+              <Package size={16} className="text-indigo-600 dark:text-indigo-400" />
+              <span className="font-medium text-sm md:text-base text-slate-700 dark:text-slate-200">{isMobile ? '款号产能' : t('style_capacity_dist')}</span>
+              <span className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-1.5 py-0.5 rounded-full">{styleCapacityData.length}</span>
             </div>
-            {showStyleCapacity ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+            {showStyleCapacity ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
           </button>
           <div className={`transition-all duration-300 ease-in-out overflow-hidden ${showStyleCapacity ? 'max-h-96' : 'max-h-0'}`}>
-            <div className="px-4 pb-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="px-3 md:px-4 pb-3 md:pb-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
               {styleCapacityData.map(item => (
-                <div key={item.styleNo} className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-700">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{item.styleNo}</span>
+                <div key={item.styleNo} className="bg-slate-50 dark:bg-slate-900 rounded-lg p-2.5 md:p-3 border border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center justify-between mb-1.5 md:mb-2">
+                    <span className="font-mono font-bold text-sm text-slate-800 dark:text-slate-100">{item.styleNo}</span>
                     <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded">{item.lines.length}线</span>
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
@@ -383,9 +384,9 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
         })()}
       </Modal>
 
-      {/* 产线管理 */}
+      {/* 产线管理 - 移动端2列 */}
       {activeTab === 'lines' && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-4">
           {lines.map((line) => {
             const hasSubLines = line.subLines && line.subLines.length > 0;
             const totalCap = hasSubLines ? line.subLines!.reduce((s, sub) => s + sub.dailyCapacity, 0) : line.dailyCapacity;
@@ -394,21 +395,21 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
             const statusColor = line.status === LineStatus.RUNNING ? 'bg-green-500' : line.status === LineStatus.MAINTENANCE ? 'bg-yellow-500' : 'bg-slate-300 dark:bg-slate-600';
 
             return (
-              <div key={line.id} onClick={() => setEditingLine(line)} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 cursor-pointer hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600 transition group">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-bold text-slate-800 dark:text-slate-100">{line.name}</span>
-                  <div className="flex items-center space-x-2">
+              <div key={line.id} onClick={() => setEditingLine(line)} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4 cursor-pointer hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600 transition group">
+                <div className="flex items-center justify-between mb-2 md:mb-3">
+                  <span className="font-bold text-sm md:text-base text-slate-800 dark:text-slate-100">{line.name}</span>
+                  <div className="flex items-center space-x-1.5">
                     <span className={`w-2 h-2 rounded-full ${statusColor}`}></span>
-                    {hasSubLines && <GitBranch size={12} className="text-slate-400 dark:text-slate-500" />}
+                    {hasSubLines && <GitBranch size={10} className="text-slate-400 dark:text-slate-500" />}
                   </div>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">{t('style_no')}</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate max-w-[80px]" title={displayStyle}>{displayStyle}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">{t('capacity_t')}</span><span className="font-mono text-slate-700 dark:text-slate-300">{totalCap}t</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">{t('export_t')}</span><span className="font-mono text-green-600 dark:text-green-400 font-medium">{totalExport}t</span></div>
+                <div className="space-y-1.5 md:space-y-2 text-xs md:text-sm">
+                  <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">{isMobile ? '款号' : t('style_no')}</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate max-w-[60px] md:max-w-[80px]" title={displayStyle}>{displayStyle}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">{isMobile ? '产能' : t('capacity_t')}</span><span className="font-mono text-slate-700 dark:text-slate-300">{totalCap}t</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">{isMobile ? '外贸' : t('export_t')}</span><span className="font-mono text-green-600 dark:text-green-400 font-medium">{totalExport}t</span></div>
                 </div>
-                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                  <button onClick={(e) => { e.stopPropagation(); setHistoryLineId(line.id); }} className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"><History size={12} className="inline mr-1" />{t('history_btn')}</button>
+                <div className="mt-2 md:mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                  <button onClick={(e) => { e.stopPropagation(); setHistoryLineId(line.id); }} className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"><History size={10} className="inline mr-0.5" />{isMobile ? '' : t('history_btn')}</button>
                   <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ type: 'line', id: line.id }); }} className="text-xs text-slate-400 hover:text-red-500"><Trash2 size={12} /></button>
                 </div>
               </div>

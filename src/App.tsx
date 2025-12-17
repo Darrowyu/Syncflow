@@ -166,7 +166,7 @@ function App(): React.ReactElement {
 
         {/* 桌面端侧边栏 */}
         {!isMobile && (
-          <aside className={`bg-slate-900 text-white transition-all duration-300 ease-in-out ${isFullscreen ? 'w-16' : 'w-64'}`}>
+          <aside className={`relative bg-slate-900 text-white transition-all duration-300 ease-in-out flex flex-col ${isFullscreen ? 'w-16' : 'w-64'}`}>
             <div className={`whitespace-nowrap overflow-hidden transition-all duration-300 ${isFullscreen ? 'p-4 px-2' : 'p-6'}`}>
               <div className={`flex items-center transition-all duration-300 ${isFullscreen ? 'justify-center' : ''}`}>
                 <Logo size={isFullscreen ? 32 : 36} className="flex-shrink-0" />
@@ -182,7 +182,7 @@ function App(): React.ReactElement {
                 </button>
               ))}
             </nav>
-            <div className={`absolute bottom-6 overflow-hidden transition-all duration-300 ${isFullscreen ? 'left-2 right-2' : 'left-6 right-6'}`}>
+            <div className={`mt-auto overflow-hidden transition-all duration-300 ${isFullscreen ? 'px-2 pb-4' : 'px-6 pb-6'}`}>
               <div className={`bg-slate-800 rounded-xl transition-all duration-300 overflow-hidden ${isFullscreen ? 'p-2' : 'p-4'}`}>
                 <h4 className={`text-sm font-medium text-white transition-all duration-300 ${isFullscreen ? 'opacity-0 max-h-0 mb-0' : 'opacity-100 max-h-6 mb-1'}`}>{t('system_status')}</h4>
                 <div className={`flex items-center text-xs text-green-400 transition-all duration-300 ${isFullscreen ? 'justify-center' : ''}`}>

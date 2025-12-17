@@ -211,21 +211,30 @@ const WarehouseModals: React.FC<WarehouseModalsProps> = ({
       </Modal>
 
       {/* 审计日志弹窗 */}
-      <Modal isOpen={showAuditModal} onClose={onCloseAuditModal} title={t('inv_audit_log')} titleIcon={<FileText size={20} />}>
-        <div className="max-h-96 overflow-y-auto">
+      <Modal isOpen={showAuditModal} onClose={onCloseAuditModal} title={t('inv_audit_log')} titleIcon={<FileText size={20} />} size="xl">
+        <div className="max-h-96 overflow-x-auto overflow-y-auto">
           {auditLogs.length === 0 ? <p className="text-center text-slate-400 py-4">{t('inv_no_transactions')}</p> : (
             <>
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 text-xs sticky top-0"><tr><th className="px-2 py-2 text-left">{t('inv_time')}</th><th className="px-2 py-2 text-left">{t('table_style')}</th><th className="px-2 py-2 text-left">{t('pkg_spec')}</th><th className="px-2 py-2 text-left">{t('table_actions')}</th><th className="px-2 py-2 text-left">{t('inv_before')}/{t('inv_after')}</th><th className="px-2 py-2 text-left">{t('label_reason')}</th></tr></thead>
+              <table className="w-full text-sm min-w-[600px]">
+                <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 text-xs sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left w-20">{t('inv_time')}</th>
+                    <th className="px-3 py-2 text-left w-20">{t('table_style')}</th>
+                    <th className="px-3 py-2 text-left w-28">{t('pkg_spec')}</th>
+                    <th className="px-3 py-2 text-left w-16">{t('table_actions')}</th>
+                    <th className="px-3 py-2 text-left w-44 whitespace-nowrap">{t('inv_before')}/{t('inv_after')}</th>
+                    <th className="px-3 py-2 text-left">{t('label_reason')}</th>
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                   {auditLogs.map(log => (
                     <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
-                      <td className="px-2 py-2 text-xs text-slate-400">{new Date(log.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-                      <td className="px-2 py-2 font-mono text-xs">{log.styleNo}</td>
-                      <td className="px-2 py-2 text-xs text-slate-500">{log.warehouseType === 'bonded' ? t('wh_bonded') : t('wh_general')}/{log.packageSpec || '820kg'}</td>
-                      <td className="px-2 py-2"><span className={`px-1.5 py-0.5 rounded text-xs ${log.action === 'adjust' ? 'bg-blue-100 text-blue-700' : log.action === 'lock' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{log.action === 'adjust' ? t('inv_edit') : log.action === 'lock' ? t('inv_lock') : t('inv_unlock')}</span></td>
-                      <td className="px-2 py-2 text-xs font-mono">A:{log.beforeGradeA}→{log.afterGradeA} B:{log.beforeGradeB}→{log.afterGradeB}</td>
-                      <td className="px-2 py-2 text-xs text-slate-500 max-w-32 truncate">{log.reason || '-'}</td>
+                      <td className="px-3 py-2 text-xs text-slate-400 whitespace-nowrap">{new Date(log.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{log.styleNo}</td>
+                      <td className="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">{log.warehouseType === 'bonded' ? t('wh_bonded') : t('wh_general')}/{log.packageSpec || '820kg'}</td>
+                      <td className="px-3 py-2"><span className={`px-1.5 py-0.5 rounded text-xs whitespace-nowrap ${log.action === 'adjust' ? 'bg-blue-100 text-blue-700' : log.action === 'lock' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{log.action === 'adjust' ? t('inv_edit') : log.action === 'lock' ? t('inv_lock') : t('inv_unlock')}</span></td>
+                      <td className="px-3 py-2 text-xs font-mono whitespace-nowrap">A:{log.beforeGradeA}→{log.afterGradeA} B:{log.beforeGradeB}→{log.afterGradeB}</td>
+                      <td className="px-3 py-2 text-xs text-slate-500 truncate max-w-40">{log.reason || '-'}</td>
                     </tr>
                   ))}
                 </tbody>

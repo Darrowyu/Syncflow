@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, Upload, Database, AlertTriangle, Check, Settings, Keyboard, Moon, Sun, Monitor, Bot, Eye, EyeOff } from 'lucide-react';
 import { downloadBackup, restoreBackup } from '../../services/api';
-import { getAIConfig, saveAIConfig, clearAIConfig, AIProvider, AIConfig } from '../../services';
+import { getAIConfig, saveAIConfig, clearAIConfig, getProviderKey, AIProvider } from '../../services';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { Modal } from './Modal';
@@ -21,8 +21,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
 
     useEffect(() => {
         const config = getAIConfig();
-        if (config) { setAiProvider(config.provider); setAiApiKey(config.apiKey); }
+        if (config) { setAiProvider(config.provider); setAiApiKey(config.keys?.[config.provider] || ''); }
     }, []);
+
+    const handleProviderChange = (provider: AIProvider): void => {
+        setAiProvider(provider);
+        setAiApiKey(getProviderKey(provider)); // 切换时加载对应provider的key
+    };
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -56,9 +61,19 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
         }
     };
 
-    const handleSaveAI = () => {
-        if (aiApiKey.trim()) { saveAIConfig({ provider: aiProvider, apiKey: aiApiKey.trim() }); setMessage({ type: 'success', text: t('ai_config_saved') }); }
-        else { clearAIConfig(); setMessage({ type: 'success', text: t('ai_config_cleared') }); }
+    const handleSaveAI = (): void => {
+        const config = getAIConfig();
+        const keys = config?.keys || {};
+        if (aiApiKey.trim()) {
+            keys[aiProvider] = aiApiKey.trim();
+            saveAIConfig({ provider: aiProvider, keys });
+            setMessage({ type: 'success', text: t('ai_config_saved') });
+        } else {
+            delete keys[aiProvider];
+            if (Object.keys(keys).length === 0) clearAIConfig();
+            else saveAIConfig({ provider: aiProvider, keys });
+            setMessage({ type: 'success', text: t('ai_config_cleared') });
+        }
     };
 
     const shortcuts = [
@@ -77,7 +92,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
                             <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('ai_provider')}</label>
                             <div className="flex space-x-2">
                                 {[{ value: 'gemini' as AIProvider, label: 'Gemini' }, { value: 'deepseek' as AIProvider, label: 'DeepSeek' }].map(opt => (
-                                    <button key={opt.value} onClick={() => setAiProvider(opt.value)} className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${aiProvider === opt.value ? 'bg-indigo-100 border-indigo-300 text-indigo-700 dark:bg-indigo-900 dark:border-indigo-700 dark:text-indigo-300' : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'}`}>{opt.label}</button>
+                                    <button key={opt.value} onClick={() => handleProviderChange(opt.value)} className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${aiProvider === opt.value ? 'bg-indigo-100 border-indigo-300 text-indigo-700 dark:bg-indigo-900 dark:border-indigo-700 dark:text-indigo-300' : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'}`}>{opt.label}</button>
                                 ))}
                             </div>
                         </div>

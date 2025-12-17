@@ -5,10 +5,10 @@ import { generateId } from '../utils';
 // AI服务商类型
 export type AIProvider = 'gemini' | 'deepseek';
 
-// AI配置接口
+// AI配置接口（每个provider独立存储key）
 export interface AIConfig {
   provider: AIProvider;
-  apiKey: string;
+  keys: { gemini?: string; deepseek?: string };
 }
 
 // localStorage存储键
@@ -18,7 +18,10 @@ const AI_CONFIG_KEY = 'syncflow_ai_config';
 export const getAIConfig = (): AIConfig | null => {
   try {
     const stored = localStorage.getItem(AI_CONFIG_KEY);
-    return stored ? JSON.parse(stored) : null;
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    if (parsed.apiKey) return { provider: parsed.provider, keys: { [parsed.provider]: parsed.apiKey } }; // 兼容旧格式
+    return parsed;
   } catch { return null; }
 };
 
@@ -32,10 +35,17 @@ export const clearAIConfig = (): void => {
   localStorage.removeItem(AI_CONFIG_KEY);
 };
 
+// 获取指定provider的key
+export const getProviderKey = (provider: AIProvider): string => {
+  const config = getAIConfig();
+  return config?.keys?.[provider] || '';
+};
+
 // 获取有效的API Key（优先用户配置，其次环境变量）
-const getEffectiveConfig = (): AIConfig => {
+const getEffectiveConfig = (): { provider: AIProvider; apiKey: string } => {
   const userConfig = getAIConfig();
-  if (userConfig?.apiKey) return userConfig;
+  const currentKey = userConfig?.keys?.[userConfig.provider];
+  if (userConfig && currentKey) return { provider: userConfig.provider, apiKey: currentKey };
   const envKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (envKey) return { provider: 'gemini', apiKey: envKey };
   throw new Error('AI API Key未配置，请在设置中配置API Key');

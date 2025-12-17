@@ -1,3 +1,4 @@
+// Warehouse View - Main component for inventory and order management
 import React, { useState, useMemo } from 'react';
 import { Order, IncidentLog, ProductLine, InventoryItem, WarehouseType, PackageSpec } from '../../types';
 import { useLanguage } from '../../i18n';

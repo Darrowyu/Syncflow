@@ -418,8 +418,32 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
         </div>
       )}
 
-      {/* 款号维护 */}
-      {activeTab === 'styles' && (
+      {/* 款号维护 - 移动端卡片视图 */}
+      {activeTab === 'styles' && isMobile && (
+        <div className="space-y-3">
+          {styles.length === 0 && <div className="text-center py-8 text-slate-400">{t('no_style_data')}</div>}
+          {styles.map(style => (
+            <div key={style.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{style.styleNo}</span>
+                <span className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded text-xs">{style.category || '-'}</span>
+              </div>
+              <div className="text-sm text-slate-600 dark:text-slate-300 mb-1">{style.name || '-'}</div>
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>单重: {style.unitWeight || 0}</span>
+                {style.note && <span className="truncate max-w-[120px]">{style.note}</span>}
+              </div>
+              <div className="flex gap-2 pt-2 mt-2 border-t border-slate-100 dark:border-slate-700">
+                {onUpdateStyle && <button onClick={() => handleOpenStyleModal(style)} className="flex-1 flex items-center justify-center px-2 py-1.5 bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded text-xs"><Edit2 size={12} className="mr-1" />编辑</button>}
+                {onRemoveStyle && <button onClick={() => setDeleteConfirm({ type: 'style', id: style.id })} className="px-3 py-1.5 text-slate-400 hover:text-red-500 rounded text-xs"><Trash2 size={14} /></button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 款号维护 - 桌面端表格 */}
+      {activeTab === 'styles' && !isMobile && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-medium border-b dark:border-slate-700">

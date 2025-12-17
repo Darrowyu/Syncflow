@@ -15,6 +15,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// 生产环境托管前端静态文件
+const distPath = join(__dirname, '..', 'dist');
+if (existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
+
 // 简易请求限流：每IP每秒最多20次请求
 const rateLimit = new Map();
 app.use((req, res, next) => {
@@ -302,6 +308,11 @@ app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] Error:`, err.message);
   res.status(500).json({ error: '服务器内部错误', message: err.message });
 });
+
+// SPA路由：所有非API请求返回index.html
+if (existsSync(distPath)) {
+  app.get('*', (req, res) => res.sendFile(join(distPath, 'index.html')));
+}
 
 // ========== 每日自动备份功能 ==========
 const BACKUP_DIR = join(__dirname, 'backups');

@@ -1,8 +1,8 @@
 import { Order, ProductLine, InventoryItem, IncidentLog, Style, InventoryTransaction } from '../types';
 import { cacheGet, cacheSet, cacheClear } from '../utils/cache';
 
-const API_PORT = import.meta.env.VITE_API_PORT || '3091';
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:${API_PORT}/api`;
+const API_PORT = import.meta.env.VITE_API_PORT;
+const API_BASE = API_PORT ? `${window.location.protocol}//${window.location.hostname}:${API_PORT}/api` : '/api';
 
 // API响应类型
 interface ApiSuccess { success: true }

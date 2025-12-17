@@ -15,7 +15,7 @@ const AIAssistant = lazy(() => import('./components/common/AIAssistant'));
 
 enum Tab { DASHBOARD = 'Dashboard', ORDERS = 'Orders', PRODUCTION = 'Production', WAREHOUSE = 'Warehouse', HELP = 'Help' }
 
-const PageLoader: React.FC = () => <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-indigo-600" size={48} /></div>;
+const PageLoader: React.FC = () => <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-blue-600" size={48} /></div>;
 
 function App(): React.ReactElement {
   const [activeTab, setActiveTab] = useState<Tab>(() => {
@@ -38,7 +38,7 @@ function App(): React.ReactElement {
     if (goToHelp) setActiveTab(Tab.HELP);
   };
 
-  const { orders, setOrders, lines, inventory, incidents, styles, loading, error, acknowledgeOrder, confirmLoad, updateLine, addLine, removeLine, logIncident, resolveIncident, removeIncident, addStyle, updateStyle, removeStyle, stockIn, stockOut, updateStock, getTransactions, productionIn, completeProduction } = useData();
+  const { orders, setOrders, lines, inventory, incidents, styles, loading, error, lastSyncTime, acknowledgeOrder, confirmLoad, updateLine, addLine, removeLine, logIncident, resolveIncident, removeIncident, addStyle, updateStyle, removeStyle, stockIn, stockOut, updateStock, getTransactions, productionIn, completeProduction, getAlerts, setSafetyStock, lockStock, unlockStock, batchStockIn, batchStockOut, getAuditLogs } = useData();
   const { isFullscreen, toggleFullscreen } = useFullscreen();
   const { isDark, toggleTheme } = useTheme();
 
@@ -70,8 +70,8 @@ function App(): React.ReactElement {
       <Suspense fallback={<PageLoader />}>
         {activeTab === Tab.DASHBOARD && <Dashboard orders={orders} inventory={inventory} lines={lines} incidents={incidents} />}
         {activeTab === Tab.ORDERS && <OrderManagement orders={orders} inventory={inventory} lines={lines} setOrders={setOrders} onAcknowledgeOrder={acknowledgeOrder} />}
-        {activeTab === Tab.PRODUCTION && <ProductionControl lines={lines} styles={styles} onUpdateLine={updateLine} onAddLine={addLine} onRemoveLine={removeLine} onAddStyle={addStyle} onUpdateStyle={updateStyle} onRemoveStyle={removeStyle} onCompleteProduction={completeProduction} />}
-        {activeTab === Tab.WAREHOUSE && <WarehouseView orders={orders} inventory={inventory} lines={lines} incidents={incidents} onConfirmLoad={confirmLoad} onLogIncident={(inc: IncidentLog) => logIncident(inc)} onResolveIncident={resolveIncident} onDeleteIncident={removeIncident} onStockIn={stockIn} onStockOut={stockOut} onUpdateStock={updateStock} onGetTransactions={getTransactions} onProductionIn={productionIn} />}
+        {activeTab === Tab.PRODUCTION && <ProductionControl lines={lines} styles={styles} onUpdateLine={updateLine} onAddLine={addLine} onRemoveLine={removeLine} onAddStyle={addStyle} onUpdateStyle={updateStyle} onRemoveStyle={removeStyle} />}
+        {activeTab === Tab.WAREHOUSE && <WarehouseView orders={orders} inventory={inventory} lines={lines} incidents={incidents} onConfirmLoad={confirmLoad} onLogIncident={(inc: IncidentLog) => logIncident(inc)} onResolveIncident={resolveIncident} onDeleteIncident={removeIncident} onStockIn={stockIn} onStockOut={stockOut} onUpdateStock={updateStock} onGetTransactions={getTransactions} onProductionIn={productionIn} onSetSafetyStock={setSafetyStock} onLockStock={lockStock} onUnlockStock={unlockStock} />}
         {activeTab === Tab.HELP && <HelpCenter />}
       </Suspense>
     );
@@ -94,8 +94,8 @@ function App(): React.ReactElement {
         {showWelcome && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-lg w-full p-6 md:p-8 animate-fade-in">
-              <div className="flex items-center justify-center w-14 h-14 md:w-16 md:h-16 bg-indigo-100 dark:bg-indigo-900 rounded-full mx-auto mb-4 md:mb-6">
-                <Sparkles size={28} className="text-indigo-600 dark:text-indigo-400" />
+              <div className="flex items-center justify-center w-14 h-14 md:w-16 md:h-16 bg-blue-100 dark:bg-blue-900 rounded-full mx-auto mb-4 md:mb-6">
+                <Sparkles size={28} className="text-blue-600 dark:text-blue-400" />
               </div>
               <h2 className="text-xl md:text-2xl font-bold text-center text-slate-800 dark:text-slate-100 mb-2">{language === 'zh' ? '欢迎使用 SyncFlow' : 'Welcome to SyncFlow'}</h2>
               <p className="text-slate-500 dark:text-slate-400 text-center text-sm mb-4 md:mb-6">{language === 'zh' ? '智能产销协同平台' : 'Smart production-sales platform'}</p>
@@ -107,14 +107,14 @@ function App(): React.ReactElement {
                   { icon: <Container size={16} />, text: language === 'zh' ? '仓库作业：装车确认' : 'Warehouse: Loading' },
                 ].map((item, i) => (
                   <div key={`welcome-${i}`} className="flex items-center p-2.5 bg-slate-50 dark:bg-slate-700 rounded-lg">
-                    <span className="text-indigo-500 mr-2">{item.icon}</span>
+                    <span className="text-blue-500 mr-2">{item.icon}</span>
                     <span className="text-xs md:text-sm text-slate-600 dark:text-slate-300">{item.text}</span>
                   </div>
                 ))}
               </div>
               <div className="flex space-x-2">
                 <button onClick={() => dismissWelcome(false)} className="flex-1 py-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition text-sm font-medium">{language === 'zh' ? '开始' : 'Start'}</button>
-                <button onClick={() => dismissWelcome(true)} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium flex items-center justify-center">{language === 'zh' ? '指南' : 'Guide'}<ArrowRight size={14} className="ml-1" /></button>
+                <button onClick={() => dismissWelcome(true)} className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium flex items-center justify-center">{language === 'zh' ? '指南' : 'Guide'}<ArrowRight size={14} className="ml-1" /></button>
               </div>
             </div>
           </div>
@@ -126,7 +126,7 @@ function App(): React.ReactElement {
             <div className="flex items-center">
               <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 mr-2"><Menu size={22} className={isDark ? 'text-slate-300' : 'text-slate-600'} /></button>
               <Logo size={28} />
-              <span className="ml-2 font-bold text-lg bg-gradient-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent">SyncFlow</span>
+              <span className="ml-2 font-bold text-lg bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">SyncFlow</span>
             </div>
             <div className="flex items-center space-x-1">
               <button onClick={toggleTheme} className={`p-2 rounded-lg ${isDark ? 'text-yellow-400' : 'text-slate-600'}`}>{isDark ? <Sun size={18} /> : <Moon size={18} />}</button>
@@ -142,13 +142,13 @@ function App(): React.ReactElement {
             <div className="p-5 flex items-center justify-between border-b border-slate-800">
               <div className="flex items-center">
                 <Logo size={32} />
-                <span className="ml-2 font-bold text-xl bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">SyncFlow</span>
+                <span className="ml-2 font-bold text-xl bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">SyncFlow</span>
               </div>
               <button onClick={() => setIsSidebarOpen(false)} className="p-1 text-slate-400 hover:text-white"><X size={22} /></button>
             </div>
             <nav className="p-4 space-y-2">
               {navItems.map(({ tab, icon, label }) => (
-                <button key={tab} onClick={() => { setActiveTab(tab); setIsSidebarOpen(false); }} className={`w-full flex items-center py-3 px-4 rounded-xl transition ${activeTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                <button key={tab} onClick={() => { setActiveTab(tab); setIsSidebarOpen(false); }} className={`w-full flex items-center py-3 px-4 rounded-xl transition ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                   <span className="mr-3">{icon}</span><span>{label}</span>
                 </button>
               ))}
@@ -170,13 +170,13 @@ function App(): React.ReactElement {
             <div className={`whitespace-nowrap overflow-hidden transition-all duration-300 ${isFullscreen ? 'p-4 px-2' : 'p-6'}`}>
               <div className={`flex items-center transition-all duration-300 ${isFullscreen ? 'justify-center' : ''}`}>
                 <Logo size={isFullscreen ? 32 : 36} className="flex-shrink-0" />
-                <h1 className={`font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent transition-all duration-300 ${isFullscreen ? 'opacity-0 w-0 ml-0' : 'opacity-100 w-auto ml-3 text-2xl'}`}>SyncFlow</h1>
+                <h1 className={`font-bold tracking-tight bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent transition-all duration-300 ${isFullscreen ? 'opacity-0 w-0 ml-0' : 'opacity-100 w-auto ml-3 text-2xl'}`}>SyncFlow</h1>
               </div>
               <p className={`text-xs text-slate-400 mt-1 transition-all duration-300 ${isFullscreen ? 'opacity-0 max-h-0 mt-0' : 'opacity-100 max-h-6'}`}>{t('app_subtitle')}</p>
             </div>
             <nav className={`mt-6 space-y-2 transition-all duration-300 ${isFullscreen ? 'px-2' : 'px-4'}`}>
               {navItems.map(({ tab, icon, label }) => (
-                <button key={tab} onClick={() => setActiveTab(tab)} title={label} className={`w-full flex items-center whitespace-nowrap overflow-hidden py-3 rounded-xl transition-all duration-300 ${isFullscreen ? 'justify-center px-2' : 'px-4'} ${activeTab === tab ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                <button key={tab} onClick={() => setActiveTab(tab)} title={label} className={`w-full flex items-center whitespace-nowrap overflow-hidden py-3 rounded-xl transition-all duration-300 ${isFullscreen ? 'justify-center px-2' : 'px-4'} ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                   <span className={`flex-shrink-0 transition-all duration-300 ${isFullscreen ? 'mr-0' : 'mr-3'}`}>{icon}</span>
                   <span className={`truncate transition-all duration-300 ${isFullscreen ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>{label}</span>
                 </button>
@@ -185,9 +185,11 @@ function App(): React.ReactElement {
             <div className={`mt-auto overflow-hidden transition-all duration-300 ${isFullscreen ? 'px-2 pb-4' : 'px-6 pb-6'}`}>
               <div className={`bg-slate-800 rounded-xl transition-all duration-300 overflow-hidden ${isFullscreen ? 'p-2' : 'p-4'}`}>
                 <h4 className={`text-sm font-medium text-white transition-all duration-300 ${isFullscreen ? 'opacity-0 max-h-0 mb-0' : 'opacity-100 max-h-6 mb-1'}`}>{t('system_status')}</h4>
-                <div className={`flex items-center text-xs text-green-400 transition-all duration-300 ${isFullscreen ? 'justify-center' : ''}`}>
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                  <span className={`transition-all duration-300 ${isFullscreen ? 'opacity-0 w-0 ml-0' : 'opacity-100 w-auto ml-2'}`}>{t('status_synced')}</span>
+                <div className={`flex items-center text-xs transition-all duration-300 ${isFullscreen ? 'justify-center' : ''} ${error ? 'text-red-400' : 'text-green-400'}`}>
+                  <span className={`w-2 h-2 rounded-full ${error ? 'bg-red-400' : 'bg-green-400 animate-pulse'}`}></span>
+                  <span className={`transition-all duration-300 ${isFullscreen ? 'opacity-0 w-0 ml-0' : 'opacity-100 w-auto ml-2'}`}>
+                    {error ? t('status_error') : lastSyncTime ? `${t('last_sync')}: ${lastSyncTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}` : t('status_synced')}
+                  </span>
                 </div>
               </div>
             </div>
@@ -219,7 +221,7 @@ function App(): React.ReactElement {
         {isMobile && (
           <nav className={`fixed bottom-0 left-0 right-0 z-30 flex justify-around items-center py-2 border-t ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'} shadow-lg`}>
             {navItems.slice(0, 4).map(({ tab, icon, label }) => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`flex flex-col items-center py-1 px-3 rounded-lg transition ${activeTab === tab ? 'text-indigo-600' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              <button key={tab} onClick={() => setActiveTab(tab)} className={`flex flex-col items-center py-1 px-3 rounded-lg transition ${activeTab === tab ? 'text-blue-600' : isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 {icon}
                 <span className="text-xs mt-0.5">{label}</span>
               </button>
@@ -229,7 +231,7 @@ function App(): React.ReactElement {
 
         {/* AI助手按钮 */}
         {!loading && !error && (
-          <button onClick={() => setShowAI(true)} className={`fixed ${isMobile ? 'bottom-20 right-4' : 'bottom-6 right-6'} w-12 h-12 md:w-14 md:h-14 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 hover:shadow-xl transition flex items-center justify-center z-40`} title="AI 助手">
+          <button onClick={() => setShowAI(true)} className={`fixed ${isMobile ? 'bottom-20 right-4' : 'bottom-6 right-6'} w-12 h-12 md:w-14 md:h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 hover:shadow-xl transition flex items-center justify-center z-40`} title="AI 助手">
             <Bot size={isMobile ? 20 : 24} />
           </button>
         )}

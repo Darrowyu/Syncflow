@@ -1,9 +1,11 @@
-import { Order, InventoryItem, ProductLine, IncidentLog } from '../types';
+import { Order, InventoryItem, ProductLine, IncidentLog, WarehouseType } from '../types';
 import * as XLSX from 'xlsx';
 
 type ExportType = 'orders' | 'inventory' | 'lines' | 'incidents';
 
-interface ExportConfig { filename: string; sheetName: string; columns: { key: string; header: string; width?: number }[] }
+interface ExportConfig { filename: string; sheetName: string; columns: { key: string; header: string; width?: number; transform?: (val: any) => string }[] }
+
+const warehouseTypeMap: Record<string, string> = { [WarehouseType.GENERAL]: '一般贸易库', [WarehouseType.BONDED]: '保税库' };
 
 const configs: Record<ExportType, ExportConfig> = {
     orders: {
@@ -27,9 +29,13 @@ const configs: Record<ExportType, ExportConfig> = {
         sheetName: '库存列表',
         columns: [
             { key: 'styleNo', header: '款号', width: 12 },
-            { key: 'currentStock', header: '当前库存(t)', width: 12 },
+            { key: 'warehouseType', header: '仓库类型', width: 12, transform: (v: string) => warehouseTypeMap[v] || v },
+            { key: 'packageSpec', header: '包装规格', width: 10 },
             { key: 'gradeA', header: '优等品(t)', width: 12 },
             { key: 'gradeB', header: '一等品(t)', width: 12 },
+            { key: 'currentStock', header: '总库存(t)', width: 12 },
+            { key: 'lockedForToday', header: '已锁定(t)', width: 10 },
+            { key: 'safetyStock', header: '安全库存(t)', width: 12 },
         ],
     },
     lines: {
@@ -64,6 +70,7 @@ export function exportToExcel<T extends Record<string, any>>(data: T[], type: Ex
     const headers = config.columns.map(c => c.header);
     const rows = data.map(item => config.columns.map(c => {
         const val = item[c.key];
+        if (c.transform) return c.transform(val);
         if (typeof val === 'boolean') return val ? '是' : '否';
         return val ?? '';
     }));

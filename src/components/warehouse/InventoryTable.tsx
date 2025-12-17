@@ -1,39 +1,20 @@
-import React, { memo, useMemo } from 'react';
-import { InventoryItem, ProductLine, LineStatus } from '../../types';
-import { Plus, Minus, Edit2, History, Factory, Package } from 'lucide-react';
+import React, { memo } from 'react';
+import { InventoryItem } from '../../types';
+import { Plus, Minus, Edit2, History, Package } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 
 interface InventoryTableProps {
   inventory: InventoryItem[];
-  lines: ProductLine[];
   onStockIn?: (styleNo: string) => void;
   onStockOut?: (styleNo: string) => void;
   onEdit?: (styleNo: string) => void;
   onHistory?: (styleNo: string) => void;
-  onProductionIn?: (styleNo: string) => void;
 }
 
-const InventoryTable: React.FC<InventoryTableProps> = memo(({ inventory, lines, onStockIn, onStockOut, onEdit, onHistory, onProductionIn }) => {
+const InventoryTable: React.FC<InventoryTableProps> = memo(({ inventory, onStockIn, onStockOut, onEdit, onHistory }) => {
   const { t } = useLanguage();
 
-  // 预计算所有款号的产能，避免每行重复计算
-  const productionMap = useMemo(() => {
-    const map = new Map<string, number>();
-    lines.filter(l => l.status === LineStatus.RUNNING).forEach(l => {
-      if (l.subLines && l.subLines.length > 0) {
-        l.subLines.forEach(sub => {
-          if (sub.currentStyle && sub.currentStyle !== '-') {
-            map.set(sub.currentStyle, (map.get(sub.currentStyle) || 0) + (sub.exportCapacity || 0));
-          }
-        });
-      } else if (l.currentStyle && l.currentStyle !== '-') {
-        map.set(l.currentStyle, (map.get(l.currentStyle) || 0) + (l.exportCapacity || 0));
-      }
-    });
-    return map;
-  }, [lines]);
 
-  const getStyleProduction = (styleNo: string): number => productionMap.get(styleNo) || 0;
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -52,33 +33,27 @@ const InventoryTable: React.FC<InventoryTableProps> = memo(({ inventory, lines, 
               <th className="px-4 py-3 text-right">{t('grade_a')}</th>
               <th className="px-4 py-3 text-right">{t('grade_b')}</th>
               <th className="px-4 py-3 text-right">{t('inv_current_stock')}</th>
-              <th className="px-4 py-3 text-right">{t('today_production')}</th>
-              <th className="px-4 py-3 text-center w-48">{t('table_actions')}</th>
+              <th className="px-4 py-3 text-center w-40">{t('table_actions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-            {inventory.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">{t('inv_no_data')}</td></tr>}
-            {inventory.map(item => {
-              const production = getStyleProduction(item.styleNo);
-              return (
-                <tr key={item.styleNo} className="hover:bg-slate-50 dark:hover:bg-slate-700">
-                  <td className="px-4 py-3 font-mono font-medium text-slate-800 dark:text-slate-100">{item.styleNo}</td>
-                  <td className="px-4 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{(item.gradeA || 0).toFixed(1)}t</td>
-                  <td className="px-4 py-3 text-right font-mono text-blue-600 dark:text-blue-400">{(item.gradeB || 0).toFixed(1)}t</td>
-                  <td className="px-4 py-3 text-right font-mono font-semibold text-slate-700 dark:text-slate-200">{item.currentStock.toFixed(1)}t</td>
-                  <td className="px-4 py-3 text-right font-mono text-indigo-600 dark:text-indigo-400">{production > 0 ? `${production.toFixed(1)}t` : '-'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-center space-x-1">
-                      {production > 0 && onProductionIn && <button onClick={() => onProductionIn(item.styleNo)} className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center" title={t('inv_production_in')}><Factory size={12} className="mr-1" />{t('stock_in_btn')}</button>}
-                      {onStockIn && <button onClick={() => onStockIn(item.styleNo)} className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/50 rounded" title={t('inv_in')}><Plus size={14} /></button>}
-                      {onStockOut && <button onClick={() => onStockOut(item.styleNo)} className="p-1.5 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/50 rounded" title={t('inv_out')}><Minus size={14} /></button>}
-                      {onEdit && <button onClick={() => onEdit(item.styleNo)} className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title={t('inv_edit')}><Edit2 size={14} /></button>}
-                      {onHistory && <button onClick={() => onHistory(item.styleNo)} className="p-1.5 text-indigo-500 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded" title={t('inv_history')}><History size={14} /></button>}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+            {inventory.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">{t('inv_no_data')}</td></tr>}
+            {inventory.map(item => (
+              <tr key={item.styleNo} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+                <td className="px-4 py-3 font-mono font-medium text-slate-800 dark:text-slate-100">{item.styleNo}</td>
+                <td className="px-4 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{(item.gradeA || 0).toFixed(1)}t</td>
+                <td className="px-4 py-3 text-right font-mono text-blue-600 dark:text-blue-400">{(item.gradeB || 0).toFixed(1)}t</td>
+                <td className="px-4 py-3 text-right font-mono font-semibold text-slate-700 dark:text-slate-200">{item.currentStock.toFixed(1)}t</td>
+                <td className="px-4 py-3">
+                  <div className="flex justify-center space-x-1">
+                    {onStockIn && <button onClick={() => onStockIn(item.styleNo)} className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/50 rounded" title={t('inv_in')}><Plus size={14} /></button>}
+                    {onStockOut && <button onClick={() => onStockOut(item.styleNo)} className="p-1.5 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/50 rounded" title={t('inv_out')}><Minus size={14} /></button>}
+                    {onEdit && <button onClick={() => onEdit(item.styleNo)} className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title={t('inv_edit')}><Edit2 size={14} /></button>}
+                    {onHistory && <button onClick={() => onHistory(item.styleNo)} className="p-1.5 text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded" title={t('inv_history')}><History size={14} /></button>}
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

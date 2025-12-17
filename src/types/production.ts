@@ -9,7 +9,7 @@ export interface SubLine {
   name: string;
   currentStyle: string;
   dailyCapacity: number;
-  exportCapacity: number;
+  exportCapacity: number; // 外贸产能（即待入库数量）
   styleChangedAt?: string;
 }
 
@@ -19,7 +19,7 @@ export interface ProductLine {
   status: LineStatus;
   currentStyle: string;
   dailyCapacity: number;
-  exportCapacity: number;
+  exportCapacity: number; // 外贸产能（即待入库数量）
   note?: string;
   styleChangedAt?: string;
   subLines?: SubLine[];

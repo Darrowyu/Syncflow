@@ -23,7 +23,7 @@ const getStatusColor = (s: OrderStatus) => { // 移到组件外避免重复创�
     case OrderStatus.IN_PRODUCTION: return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300';
     case OrderStatus.READY_TO_SHIP: return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300';
     case OrderStatus.SHIPPED: return 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400';
-    case OrderStatus.CONFIRMED: return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300';
+    case OrderStatus.CONFIRMED: return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300';
     default: return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300';
   }
 };
@@ -134,7 +134,7 @@ const OrderTable: React.FC<OrderTableProps> = memo(({ orders, inventory, lines, 
                         <div className="flex items-center justify-center space-x-1">
                           {isUrgent && <button onClick={(e) => { e.stopPropagation(); onAcknowledgeOrder(order.id); }} className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded text-xs font-semibold animate-pulse inline-flex items-center"><AlertCircle size={10} className="mr-0.5" />{t('btn_ack_large')}</button>}
                           <button onClick={(e) => { e.stopPropagation(); onPrint(order); }} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" title={t('print_packing_list')}><Printer size={14} /></button>
-                          {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); onEdit(order); }} className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"><Edit2 size={14} /></button>}
+                          {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); onEdit(order); }} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"><Edit2 size={14} /></button>}
                           {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); onDelete(order.id); }} className="p-1 text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>}
                           {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                         </div>
@@ -150,8 +150,8 @@ const OrderTable: React.FC<OrderTableProps> = memo(({ orders, inventory, lines, 
                             <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_po')}</span><span className="font-mono text-slate-700 dark:text-slate-300">{order.piNo}</span></div>
                             <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_bl')}</span><span className="font-mono text-slate-700 dark:text-slate-300">{order.blNo || '-'}</span></div>
                             <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_pkg_per_cont')}</span><span className="text-slate-700 dark:text-slate-300">{order.packagesPerContainer}</span></div>
-                            <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_contact')}</span><span className="bg-indigo-50 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full text-xs">{order.contactPerson}</span></div>
-                            <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_trade_type')}</span><span className={`px-2 py-0.5 rounded text-xs ${order.tradeType === TradeType.BONDED ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>{order.tradeType === TradeType.BONDED ? t('trade_bonded') : t('trade_general')}</span></div>
+                            <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_contact')}</span><span className="bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full text-xs">{order.contactPerson}</span></div>
+                            <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_trade_type')}</span><span className={`px-2 py-0.5 rounded text-xs ${order.tradeType === TradeType.BONDED ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>{order.tradeType === TradeType.BONDED ? t('trade_bonded') : t('trade_general')}</span></div>
                             <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('loading_time')}</span><span className="text-slate-700 dark:text-slate-300">{getTimeText(order.loadingTimeSlot)}</span></div>
                             <div className="col-span-2 md:col-span-4 lg:col-span-6"><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_requirements')}</span><span className="text-slate-700 dark:text-slate-300">{order.requirements}</span></div>
                           </div>

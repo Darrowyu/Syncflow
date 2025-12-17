@@ -72,9 +72,9 @@ const InventoryChart: React.FC<InventoryChartProps> = memo(({ data }) => {
             </button>
           )}
           <div className="bg-slate-100 dark:bg-slate-700 rounded p-0.5 flex">
-            <button onClick={() => setChartType('bar')} className={`p-1.5 rounded transition ${chartType === 'bar' ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} title={t('chart_bar')}><BarChart3 size={14} /></button>
-            <button onClick={() => setChartType('line')} className={`p-1.5 rounded transition ${chartType === 'line' ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} title={t('chart_line')}><LineChartIcon size={14} /></button>
-            <button onClick={() => setChartType('pie')} className={`p-1.5 rounded transition ${chartType === 'pie' ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} title={t('chart_pie')}><PieChartIcon size={14} /></button>
+            <button onClick={() => setChartType('bar')} className={`p-1.5 rounded transition ${chartType === 'bar' ? 'bg-white dark:bg-slate-600 shadow text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} title={t('chart_bar')}><BarChart3 size={14} /></button>
+            <button onClick={() => setChartType('line')} className={`p-1.5 rounded transition ${chartType === 'line' ? 'bg-white dark:bg-slate-600 shadow text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} title={t('chart_line')}><LineChartIcon size={14} /></button>
+            <button onClick={() => setChartType('pie')} className={`p-1.5 rounded transition ${chartType === 'pie' ? 'bg-white dark:bg-slate-600 shadow text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} title={t('chart_pie')}><PieChartIcon size={14} /></button>
           </div>
         </div>
       </div>

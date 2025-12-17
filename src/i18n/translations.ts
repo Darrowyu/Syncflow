@@ -3,7 +3,7 @@ export type Language = 'en' | 'zh';
 export const translations = {
   en: {
     nav_dashboard: "Dashboard", nav_orders: "Order Mgmt", nav_production: "Production", nav_warehouse: "Warehouse", nav_help: "Help",
-    app_subtitle: "Production & Sales Coordination Platform", system_status: "System Status", status_synced: "Inventory Synced", select_tab: "Select a tab",
+    app_subtitle: "Production & Sales Coordination Platform", system_status: "System Status", status_synced: "Inventory Synced", status_error: "Connection Error", last_sync: "Last Sync", select_tab: "Select a tab",
     desc_dashboard: "Overview of production alignment and inventory.", desc_orders: "Manage client orders and check availability.",
     desc_production: "Configure daily line capacity and export allocation.", desc_warehouse: "Execution and loading confirmation. Report exceptions.", desc_help: "User guide and system documentation.",
     stats_active_orders: "Active Orders", stats_pending_volume: "Pending Volume", stats_active_lines: "Active Lines", stats_critical_alerts: "Critical Alerts",
@@ -11,7 +11,7 @@ export const translations = {
     requires: "requires", prep_of: "of", chart_title: "Inventory & Production vs. Demand",
     chart_demand: "Order Demand", chart_stock: "Stock", chart_prod: "Today's Prod", chart_total: "Total Available",
     inv_health: "Inventory Health", coverage: "Coverage", gap: "Gap", incident_log: "Exception Log",
-    incident_recent: "Recent Incidents", no_incidents: "No recent incidents",
+    incident_recent: "Recent Incidents", no_incidents: "No recent incidents", table_reported_by: "Reported By", table_issue: "Issue", table_notes: "Notes",
     prod_title: "Production Line Control", prod_desc: "Daily capacity declaration and export allocation.", btn_save_config: "Save Daily Config",
     line_running: "Running", line_maintenance: "Maintenance", line_stopped: "Stopped",
     label_current_style: "Current Style", label_total_cap: "Total Cap (t)", label_export_alloc: "Export Alloc (%)",
@@ -36,6 +36,9 @@ export const translations = {
     expected_ship: "Expected Ship", workshop_status: "Workshop Status", ws_not_started: "Not Started", ws_in_progress: "In Progress", ws_confirmed: "Confirmed", ws_issue: "Issue",
     prep_days: "Prep Days", prep_alert: "Prep Required", days: "days",
     trade_general: "General Trade", trade_bonded: "Bonded",
+    // Warehouse types & Package specs
+    wh_general: "General Trade WH", wh_bonded: "Bonded WH", wh_all: "All Warehouses", wh_type: "Warehouse",
+    pkg_820: "820kg", pkg_750: "750kg", pkg_25: "25kg", pkg_all: "All Specs", pkg_spec: "Spec", filter_style_placeholder: "Search style...",
     btn_update_workshop: "Update Status", shipping_schedule: "Shipping Schedule", today_shipments: "Today's Shipments", upcoming_shipments: "Upcoming",
     domestic_conflict: "Domestic Conflict", line_busy: "Line occupied by domestic",
     incident_note_placeholder: "Who took it? What time? Provide details...",
@@ -43,8 +46,11 @@ export const translations = {
     inv_current_stock: "Current Stock", inv_locked: "Locked", inv_available: "Available",
     inv_edit: "Edit", inv_in: "Stock In", inv_out: "Stock Out", inv_history: "History",
     inv_production_in: "Production In", inv_manual_adjust: "Manual Adjust",
+    inv_pending_in: "Pending Stock In", inv_pending_in_desc: "Production output waiting for warehouse confirmation",
+    inv_no_pending: "No pending stock in", inv_confirm_in: "Confirm Stock In", inv_line_source: "Line",
+    pending_in: "Pending", submit_pending: "Submit",
     inv_quantity: "Quantity (t)", inv_source: "Source", inv_note: "Note",
-    inv_confirm: "Confirm", inv_no_data: "No inventory data",
+    inv_confirm: "Confirm", inv_no_data: "No inventory data", inv_preview: "Preview after operation",
     inv_transaction_history: "Transaction History", inv_type_in: "IN", inv_type_out: "OUT",
     inv_balance: "Balance", inv_time: "Time", inv_no_transactions: "No transactions",
     // Order status
@@ -106,19 +112,32 @@ export const translations = {
     toast_load_confirmed: "Loading confirmed", toast_incident_reported: "Incident reported", toast_incident_resolved: "Incident resolved", toast_incident_reopened: "Incident reopened", toast_incident_deleted: "Incident deleted",
     toast_line_added: "Line added", toast_line_deleted: "Line deleted", toast_line_updated: "Line updated",
     toast_style_added: "Style added", toast_style_updated: "Style updated", toast_style_deleted: "Style deleted",
-    toast_production_in: "Production stock in successful", toast_restore_success: "Data restored successfully"
+    toast_production_in: "Production stock in successful", toast_restore_success: "Data restored successfully",
+    // Inventory alerts & new features
+    inv_alerts: "Inventory Alerts", inv_safety_stock: "Safety Stock", inv_below_safety: "Below Safety Stock",
+    inv_lock: "Lock", inv_unlock: "Unlock", inv_locked_qty: "Locked Qty", inv_available_qty: "Available Qty",
+    inv_batch_in: "Batch Stock In", inv_batch_out: "Batch Stock Out", inv_audit_log: "Audit Log",
+    inv_adjust_reason: "Adjust Reason", inv_operator: "Operator", inv_before: "Before", inv_after: "After",
+    // Warehouse additional
+    inv_lock_manage: "Lock Management", inv_lock_unlock: "Lock/Unlock", inv_set_safety: "Set Safety Stock",
+    inv_export_success: "Export successful", inv_records: "records", inv_exporting: "Exporting...",
+    inv_adjust_in: "Adjust In", inv_adjust_out: "Adjust Out",
+    wh_total: "Total", wh_containers: "Containers", wh_port: "Port",
+    wh_report_issue: "Report Issue", wh_confirm_load: "Confirm Load",
+    wh_shipped_list: "Shipped Today", wh_no_shipped: "No shipped orders today",
+    inc_resolved: "Resolved", inc_reopen: "Reopen", inc_prev_page: "Prev", inc_next_page: "Next"
   },
   zh: {
     nav_dashboard: "仪表盘", nav_orders: "订单管理", nav_production: "排产控制", nav_warehouse: "仓库作业", nav_help: "使用指南",
-    app_subtitle: "产销协同平台", system_status: "系统状态", status_synced: "库存已同步", select_tab: "请选择一个标签页",
+    app_subtitle: "产销协同平台", system_status: "系统状态", status_synced: "库存已同步", status_error: "连接异常", last_sync: "最后同步", select_tab: "请选择一个标签页",
     desc_dashboard: "生产对齐与库存概览。", desc_orders: "管理客户订单并检查库存可用性。",
-    desc_production: "配置每日产线产能及外贸分配比例。", desc_warehouse: "装车执行与确认。异常情况立即上报。", desc_help: "系统使用指南与帮助文档。",
+    desc_production: "配置每日产线产能及外贸分配比例。", desc_warehouse: "库存管理、出入库作业与装车确认。", desc_help: "系统使用指南与帮助文档。",
     stats_active_orders: "进行中订单", stats_pending_volume: "待发货量", stats_active_lines: "运行产线", stats_critical_alerts: "紧急预警",
     alert_large_order: "大货备货预警 (>100吨)", alert_suffix: "待仓库确认。",
     requires: "需要", prep_of: "", chart_title: "库存 & 产量 vs 需求",
     chart_demand: "订单需求", chart_stock: "库存", chart_prod: "今日产量", chart_total: "总可用量",
     inv_health: "库存健康度", coverage: "覆盖率", gap: "缺口", incident_log: "异常日志",
-    incident_recent: "近期异常记录", no_incidents: "暂无异常记录",
+    incident_recent: "近期异常记录", no_incidents: "暂无异常记录", table_reported_by: "上报人", table_issue: "问题", table_notes: "备注",
     prod_title: "产线控制中心", prod_desc: "每日产能申报与外贸分配。", btn_save_config: "保存每日配置",
     line_running: "运行中", line_maintenance: "维护中", line_stopped: "停机",
     label_current_style: "当前款号", label_total_cap: "总产能 (吨)", label_export_alloc: "外贸分配 (%)",
@@ -142,6 +161,9 @@ export const translations = {
     expected_ship: "预计发货", workshop_status: "车间沟通", ws_not_started: "未开始", ws_in_progress: "沟通中", ws_confirmed: "已确认", ws_issue: "有问题",
     prep_days: "备货天数", prep_alert: "需提前备货", days: "天",
     trade_general: "一般贸易", trade_bonded: "保税",
+    // 仓库类型 & 包装规格
+    wh_general: "一般贸易库", wh_bonded: "保税库", wh_all: "全部仓库", wh_type: "仓库",
+    pkg_820: "820kg", pkg_750: "750kg", pkg_25: "25kg", pkg_all: "全部规格", pkg_spec: "规格", filter_style_placeholder: "搜索款号...",
     btn_update_workshop: "更新沟通状态", shipping_schedule: "发货排程", today_shipments: "今日发货", upcoming_shipments: "近期发货",
     domestic_conflict: "内贸冲突", line_busy: "产线被内贸占用",
     incident_note_placeholder: "谁拉走的？什么时间？请详细说明...",
@@ -149,8 +171,11 @@ export const translations = {
     inv_current_stock: "当前库存", inv_locked: "已锁定", inv_available: "可用",
     inv_edit: "编辑", inv_in: "入库", inv_out: "出库", inv_history: "流水",
     inv_production_in: "生产入库", inv_manual_adjust: "手动调整",
+    inv_pending_in: "待入库", inv_pending_in_desc: "产线产出等待仓库确认入库",
+    inv_no_pending: "暂无待入库", inv_confirm_in: "确认入库", inv_line_source: "产线",
+    pending_in: "待入库", submit_pending: "提交",
     inv_quantity: "数量 (吨)", inv_source: "来源", inv_note: "备注",
-    inv_confirm: "确认", inv_no_data: "暂无库存数据",
+    inv_confirm: "确认", inv_no_data: "暂无库存数据", inv_preview: "操作后预览",
     inv_transaction_history: "库存流水记录", inv_type_in: "入库", inv_type_out: "出库",
     inv_balance: "余额", inv_time: "时间", inv_no_transactions: "暂无流水记录",
     // Order status
@@ -212,7 +237,20 @@ export const translations = {
     toast_load_confirmed: "装车已确认", toast_incident_reported: "异常已上报", toast_incident_resolved: "异常已处理", toast_incident_reopened: "异常已重新打开", toast_incident_deleted: "异常已删除",
     toast_line_added: "产线已添加", toast_line_deleted: "产线已删除", toast_line_updated: "产线已更新",
     toast_style_added: "款号已添加", toast_style_updated: "款号已更新", toast_style_deleted: "款号已删除",
-    toast_production_in: "生产入库成功", toast_restore_success: "数据恢复成功"
+    toast_production_in: "生产入库成功", toast_restore_success: "数据恢复成功",
+    // 库存预警 & 新功能
+    inv_alerts: "库存预警", inv_safety_stock: "安全库存", inv_below_safety: "低于安全库存",
+    inv_lock: "锁定", inv_unlock: "解锁", inv_locked_qty: "已锁定", inv_available_qty: "可用量",
+    inv_batch_in: "批量入库", inv_batch_out: "批量出库", inv_audit_log: "审计日志",
+    inv_adjust_reason: "调整原因", inv_operator: "操作人", inv_before: "调整前", inv_after: "调整后",
+    // 仓库作业补充
+    inv_lock_manage: "库存锁定管理", inv_lock_unlock: "锁定/解锁", inv_set_safety: "设置安全库存",
+    inv_export_success: "导出成功", inv_records: "条记录", inv_exporting: "导出中...",
+    inv_adjust_in: "盘点入库", inv_adjust_out: "盘点出库",
+    wh_total: "总量", wh_containers: "柜数", wh_port: "港口",
+    wh_report_issue: "异常", wh_confirm_load: "确认装车",
+    wh_shipped_list: "今日已发", wh_no_shipped: "今日暂无已发订单",
+    inc_resolved: "已解决", inc_reopen: "重开", inc_prev_page: "上一页", inc_next_page: "下一页"
   }
 };
 

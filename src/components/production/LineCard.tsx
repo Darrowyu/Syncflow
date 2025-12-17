@@ -17,7 +17,7 @@ const LineCard: React.FC<LineCardProps> = ({ line, onEdit, onDelete, onShowHisto
   const statusColor = line.status === LineStatus.RUNNING ? 'bg-green-500' : line.status === LineStatus.MAINTENANCE ? 'bg-yellow-500' : 'bg-slate-300 dark:bg-slate-600';
 
   return (
-    <div onClick={() => onEdit(line)} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 cursor-pointer hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600 transition group">
+    <div onClick={() => onEdit(line)} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 cursor-pointer hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 transition group">
       <div className="flex items-center justify-between mb-3">
         <span className="font-bold text-slate-800 dark:text-slate-100">{line.name}</span>
         <div className="flex items-center space-x-2">
@@ -31,7 +31,7 @@ const LineCard: React.FC<LineCardProps> = ({ line, onEdit, onDelete, onShowHisto
         <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">外贸</span><span className="font-mono text-green-600 dark:text-green-400 font-medium">{totalExport}t</span></div>
       </div>
       <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
-        <button onClick={(e) => { e.stopPropagation(); onShowHistory(line.id); }} className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"><History size={12} className="inline mr-1" />历史</button>
+        <button onClick={(e) => { e.stopPropagation(); onShowHistory(line.id); }} className="text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"><History size={12} className="inline mr-1" />历史</button>
         <button onClick={(e) => { e.stopPropagation(); onDelete(line.id); }} className="text-xs text-slate-400 hover:text-red-500"><Trash2 size={12} /></button>
       </div>
     </div>

@@ -58,7 +58,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ orders, lines, inventory, inc
 
   return (
     <div className="fixed bottom-4 right-4 w-96 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 flex flex-col max-h-[600px]">
-      <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-700 bg-indigo-600 rounded-t-2xl">
+      <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-700 bg-blue-600 rounded-t-2xl">
         <div className="flex items-center text-white">
           <Sparkles size={20} className="mr-2" />
           <span className="font-semibold">{t('ai_assistant')}</span>
@@ -69,7 +69,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ orders, lines, inventory, inc
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">{t('quick_analysis')}</p>
         <div className="grid grid-cols-2 gap-2">
           {quickActions.map(a => (
-            <button key={a.id} onClick={a.action} disabled={loading} className={`flex items-center px-3 py-2 rounded-lg text-sm transition ${activeAction === a.id ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300' : 'bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'} disabled:opacity-50`}>
+            <button key={a.id} onClick={a.action} disabled={loading} className={`flex items-center px-3 py-2 rounded-lg text-sm transition ${activeAction === a.id ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : 'bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'} disabled:opacity-50`}>
               <span className="mr-2">{a.icon}</span>{a.label}
             </button>
           ))}
@@ -77,7 +77,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ orders, lines, inventory, inc
       </div>
       <div className="flex-1 overflow-y-auto p-4 min-h-[150px]">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-indigo-500 dark:text-indigo-400">
+          <div className="flex items-center justify-center h-full text-blue-500 dark:text-blue-400">
             <Loader2 className="animate-spin mr-2" size={20} />
             <span className="text-sm">{t('analyzing')}</span>
           </div>
@@ -92,8 +92,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ orders, lines, inventory, inc
       </div>
       <div className="p-4 border-t border-slate-100 dark:border-slate-700">
         <div className="flex space-x-2">
-          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleQuery()} placeholder={t('ask_placeholder')} className="flex-1 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <button onClick={handleQuery} disabled={loading || !query.trim()} className="px-3 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50 hover:bg-indigo-700 transition">
+          <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleQuery()} placeholder={t('ask_placeholder')} className="flex-1 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button onClick={handleQuery} disabled={loading || !query.trim()} className="px-3 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50 hover:bg-blue-700 transition">
             <Send size={16} />
           </button>
         </div>

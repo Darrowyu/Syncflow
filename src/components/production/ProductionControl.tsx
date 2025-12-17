@@ -17,10 +17,9 @@ interface ProductionControlProps {
   onAddStyle?: (data: Omit<Style, 'id'>) => void;
   onUpdateStyle?: (id: number, data: Partial<Style>) => void;
   onRemoveStyle?: (id: number) => void;
-  onCompleteProduction?: (lineId: number, styleNo: string, quantity: number, grade?: string) => Promise<void>; // 完成生产入库
 }
 
-const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [], onUpdateLine, onAddLine, onRemoveLine, onAddStyle, onUpdateStyle, onRemoveStyle, onCompleteProduction }) => {
+const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [], onUpdateLine, onAddLine, onRemoveLine, onAddStyle, onUpdateStyle, onRemoveStyle }) => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<'lines' | 'styles'>('lines');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -121,7 +120,7 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4">
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4">
           <div className="flex items-center justify-between">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-50 dark:bg-indigo-900/50 rounded-lg flex items-center justify-center"><Factory size={isMobile ? 16 : 20} className="text-indigo-600 dark:text-indigo-400" /></div>
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-50 dark:bg-blue-900/50 rounded-lg flex items-center justify-center"><Factory size={isMobile ? 16 : 20} className="text-blue-600 dark:text-blue-400" /></div>
             <span className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">{lines.length}</span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 md:mt-2">{t('total_lines')}</p>
@@ -149,7 +148,7 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
         </div>
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4 col-span-2 md:col-span-1">
           <div className="flex items-center justify-between">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-purple-50 dark:bg-purple-900/50 rounded-lg flex items-center justify-center"><Package size={isMobile ? 16 : 20} className="text-purple-600 dark:text-purple-400" /></div>
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-50 dark:bg-blue-900/50 rounded-lg flex items-center justify-center"><Package size={isMobile ? 16 : 20} className="text-blue-600 dark:text-blue-400" /></div>
             <span className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100">{styles.length}</span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 md:mt-2">{t('style_count')}</p>
@@ -161,9 +160,9 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
           <button onClick={() => setShowStyleCapacity(!showStyleCapacity)} className="w-full px-3 md:px-4 py-2.5 md:py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700 transition">
             <div className="flex items-center space-x-2">
-              <Package size={16} className="text-indigo-600 dark:text-indigo-400" />
+              <Package size={16} className="text-blue-600 dark:text-blue-400" />
               <span className="font-medium text-sm md:text-base text-slate-700 dark:text-slate-200">{isMobile ? '款号产能' : t('style_capacity_dist')}</span>
-              <span className="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-1.5 py-0.5 rounded-full">{styleCapacityData.length}</span>
+              <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 rounded-full">{styleCapacityData.length}</span>
             </div>
             {showStyleCapacity ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
           </button>
@@ -190,14 +189,14 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
       <div className="flex justify-end items-center">
         <div className="flex space-x-2">
           <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex">
-            <button onClick={() => setActiveTab('lines')} className={`px-3 py-1.5 rounded text-sm font-medium transition ${activeTab === 'lines' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('line_management')}</button>
-            <button onClick={() => setActiveTab('styles')} className={`px-3 py-1.5 rounded text-sm font-medium transition ${activeTab === 'styles' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('style_maintenance')}</button>
+            <button onClick={() => setActiveTab('lines')} className={`px-3 py-1.5 rounded text-sm font-medium transition ${activeTab === 'lines' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('line_management')}</button>
+            <button onClick={() => setActiveTab('styles')} className={`px-3 py-1.5 rounded text-sm font-medium transition ${activeTab === 'styles' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('style_maintenance')}</button>
           </div>
           {activeTab === 'lines' && onAddLine && (
-            <button onClick={() => setShowAddModal(true)} className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"><Plus size={16} className="mr-2" />{t('add_line')}</button>
+            <button onClick={() => setShowAddModal(true)} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"><Plus size={16} className="mr-2" />{t('add_line')}</button>
           )}
           {activeTab === 'styles' && onAddStyle && (
-            <button onClick={() => handleOpenStyleModal()} className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"><Plus size={16} className="mr-2" />{t('add_style')}</button>
+            <button onClick={() => handleOpenStyleModal()} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"><Plus size={16} className="mr-2" />{t('add_style')}</button>
           )}
         </div>
       </div>
@@ -209,7 +208,7 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
             <label className="block text-sm font-medium text-slate-700 mb-1">{t('line_name')}</label>
             <input type="text" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder={`Line ${lines.length + 1}`} value={newLineName} onChange={(e) => setNewLineName(e.target.value)} />
           </div>
-          <button onClick={handleAddLine} className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">{t('confirm_add')}</button>
+          <button onClick={handleAddLine} className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">{t('confirm_add')}</button>
         </div>
       </Modal>
 
@@ -227,7 +226,11 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('category')}</label>
-              <input type="text" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder="A/B" value={styleForm.category} onChange={(e) => setStyleForm({ ...styleForm, category: e.target.value })} />
+              <select className="w-full border border-slate-300 rounded-lg p-2.5 text-sm" value={styleForm.category} onChange={(e) => setStyleForm({ ...styleForm, category: e.target.value })}>
+                <option value="">-</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('unit_weight')}</label>
@@ -238,7 +241,7 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
             <label className="block text-sm font-medium text-slate-700 mb-1">{t('note')}</label>
             <textarea className="w-full border border-slate-300 rounded-lg p-2.5 text-sm h-16" value={styleForm.note} onChange={(e) => setStyleForm({ ...styleForm, note: e.target.value })} />
           </div>
-          <button onClick={handleSaveStyle} disabled={!styleForm.styleNo.trim()} className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50">{editingStyle ? t('save_changes') : t('confirm_add')}</button>
+          <button onClick={handleSaveStyle} disabled={!styleForm.styleNo.trim()} className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">{editingStyle ? t('save_changes') : t('confirm_add')}</button>
         </div>
       </Modal>
 
@@ -253,7 +256,7 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
                 <div className="flex items-center space-x-2">
                   <span className="font-mono text-slate-500">{log.fromStyle || '-'}</span>
                   <ArrowRight size={14} className="text-slate-400" />
-                  <span className="font-mono font-medium text-indigo-600">{log.toStyle}</span>
+                  <span className="font-mono font-medium text-blue-600">{log.toStyle}</span>
                 </div>
                 <span className="text-xs text-slate-400">{new Date(log.changedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
               </div>
@@ -365,20 +368,11 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
               )}
               {!(hasBigPipe && hasSmallPipe) && (
                 <div className="flex space-x-2">
-                  {!hasBigPipe && <button onClick={() => handleAddSubLine('big')} className="flex-1 py-2 text-sm text-indigo-600 border border-dashed border-indigo-300 rounded-lg hover:bg-indigo-50"><GitBranch size={14} className="inline mr-1" />+{t('big_pipe')}</button>}
+                  {!hasBigPipe && <button onClick={() => handleAddSubLine('big')} className="flex-1 py-2 text-sm text-blue-600 border border-dashed border-blue-300 rounded-lg hover:bg-blue-50"><GitBranch size={14} className="inline mr-1" />+{t('big_pipe')}</button>}
                   {!hasSmallPipe && <button onClick={() => handleAddSubLine('small')} className="flex-1 py-2 text-sm text-orange-600 border border-dashed border-orange-300 rounded-lg hover:bg-orange-50"><GitBranch size={14} className="inline mr-1" />+{t('small_pipe')}</button>}
                 </div>
               )}
-              {onCompleteProduction && hasSubLines && line.subLines!.map((sub, idx) => {
-                if (sub.currentStyle === '-' || (sub.exportCapacity || 0) <= 0) return null;
-                return (
-                  <button key={sub.id} onClick={async () => { await onCompleteProduction(line.id, sub.currentStyle, sub.exportCapacity || 0); const newSubs = [...line.subLines!]; newSubs[idx] = { ...sub, exportCapacity: 0 }; onUpdateLine(line.id, { subLines: newSubs }); }} className="w-full py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 flex items-center justify-center"><Package size={16} className="mr-2" />{sub.name} {sub.currentStyle} {t('complete_stock_in')} ({sub.exportCapacity}t)</button>
-                );
-              })}
-              {onCompleteProduction && !hasSubLines && line.currentStyle !== '-' && (line.exportCapacity || 0) > 0 && (
-                <button onClick={async () => { await onCompleteProduction(line.id, line.currentStyle, line.exportCapacity || 0); onUpdateLine(line.id, { exportCapacity: 0 }); }} className="w-full py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 flex items-center justify-center"><Package size={16} className="mr-2" />{line.currentStyle} {t('complete_stock_in')} ({line.exportCapacity}t)</button>
-              )}
-              <button onClick={() => setEditingLine(null)} className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">{t('close_btn')}</button>
+              <button onClick={() => setEditingLine(null)} className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">{t('close_btn')}</button>
             </div>
           );
         })()}
@@ -392,25 +386,27 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
             const totalCap = hasSubLines ? line.subLines!.reduce((s, sub) => s + sub.dailyCapacity, 0) : line.dailyCapacity;
             const totalExport = hasSubLines ? line.subLines!.reduce((s, sub) => s + (sub.exportCapacity || 0), 0) : (line.exportCapacity || 0);
             const displayStyle = hasSubLines ? line.subLines!.map(s => s.currentStyle).filter(s => s !== '-').join('/') || '-' : line.currentStyle;
-            const statusColor = line.status === LineStatus.RUNNING ? 'bg-green-500' : line.status === LineStatus.MAINTENANCE ? 'bg-yellow-500' : 'bg-slate-300 dark:bg-slate-600';
+            const borderColor = line.status === LineStatus.RUNNING ? 'border-l-green-500' : line.status === LineStatus.MAINTENANCE ? 'border-l-yellow-500' : 'border-l-slate-300';
+            const statusDot = line.status === LineStatus.RUNNING ? 'bg-green-500' : line.status === LineStatus.MAINTENANCE ? 'bg-yellow-500' : 'bg-slate-300';
+            const exportPercent = totalCap > 0 ? Math.min((totalExport / totalCap) * 100, 100) : 0;
 
             return (
-              <div key={line.id} onClick={() => setEditingLine(line)} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-4 cursor-pointer hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600 transition group">
-                <div className="flex items-center justify-between mb-2 md:mb-3">
+              <div key={line.id} onClick={() => setEditingLine(line)} className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 border-l-4 ${borderColor} p-3 md:p-4 cursor-pointer hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition`}>
+                <div className="flex items-center justify-between mb-2">
                   <span className="font-bold text-sm md:text-base text-slate-800 dark:text-slate-100">{line.name}</span>
-                  <div className="flex items-center space-x-1.5">
-                    <span className={`w-2 h-2 rounded-full ${statusColor}`}></span>
-                    {hasSubLines && <GitBranch size={10} className="text-slate-400 dark:text-slate-500" />}
-                  </div>
+                  <span className={`w-2.5 h-2.5 rounded-full ${statusDot}`}></span>
                 </div>
-                <div className="space-y-1.5 md:space-y-2 text-xs md:text-sm">
-                  <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">{isMobile ? '款号' : t('style_no')}</span><span className="font-mono text-slate-700 dark:text-slate-300 truncate max-w-[60px] md:max-w-[80px]" title={displayStyle}>{displayStyle}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">{isMobile ? '产能' : t('capacity_t')}</span><span className="font-mono text-slate-700 dark:text-slate-300">{totalCap}t</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">{isMobile ? '外贸' : t('export_t')}</span><span className="font-mono text-green-600 dark:text-green-400 font-medium">{totalExport}t</span></div>
+                <div className="flex items-center mb-3">
+                  <span className="font-mono text-lg md:text-xl font-bold text-slate-700 dark:text-slate-200">{displayStyle !== '-' ? displayStyle : '-'}</span>
+                  {hasSubLines && <GitBranch size={12} className="inline ml-1.5 text-slate-400" />}
                 </div>
-                <div className="mt-2 md:mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                  <button onClick={(e) => { e.stopPropagation(); setHistoryLineId(line.id); }} className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"><History size={10} className="inline mr-0.5" />{isMobile ? '' : t('history_btn')}</button>
-                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ type: 'line', id: line.id }); }} className="text-xs text-slate-400 hover:text-red-500"><Trash2 size={12} /></button>
+                <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                  <div className="flex justify-between"><span>产能</span><span className="font-mono font-medium text-slate-700 dark:text-slate-200">{totalCap}t</span></div>
+                  <div className="flex justify-between"><span>外贸</span><span className="font-mono font-medium text-slate-700 dark:text-slate-200">{totalExport}t {totalCap > 0 && <span className="text-slate-400">({exportPercent.toFixed(0)}%)</span>}</span></div>
+                </div>
+                <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                  <button onClick={(e) => { e.stopPropagation(); setHistoryLineId(line.id); }} className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700"><History size={12} className="inline mr-0.5" />{isMobile ? '' : t('history_btn')}</button>
+                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ type: 'line', id: line.id }); }} className="text-xs text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
                 </div>
               </div>
             );
@@ -434,7 +430,7 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
                 {style.note && <span className="truncate max-w-[120px]">{style.note}</span>}
               </div>
               <div className="flex gap-2 pt-2 mt-2 border-t border-slate-100 dark:border-slate-700">
-                {onUpdateStyle && <button onClick={() => handleOpenStyleModal(style)} className="flex-1 flex items-center justify-center px-2 py-1.5 bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded text-xs"><Edit2 size={12} className="mr-1" />编辑</button>}
+                {onUpdateStyle && <button onClick={() => handleOpenStyleModal(style)} className="flex-1 flex items-center justify-center px-2 py-1.5 bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded text-xs"><Edit2 size={12} className="mr-1" />编辑</button>}
                 {onRemoveStyle && <button onClick={() => setDeleteConfirm({ type: 'style', id: style.id })} className="px-3 py-1.5 text-slate-400 hover:text-red-500 rounded text-xs"><Trash2 size={14} /></button>}
               </div>
             </div>
@@ -467,7 +463,7 @@ const ProductionControl: React.FC<ProductionControlProps> = ({ lines, styles = [
                   <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs max-w-xs truncate">{style.note || '-'}</td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex justify-center space-x-2">
-                      {onUpdateStyle && <button onClick={() => handleOpenStyleModal(style)} className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"><Edit2 size={14} /></button>}
+                      {onUpdateStyle && <button onClick={() => handleOpenStyleModal(style)} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"><Edit2 size={14} /></button>}
                       {onRemoveStyle && <button onClick={() => setDeleteConfirm({ type: 'style', id: style.id })} className="p-1 text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>}
                     </div>
                   </td>

@@ -70,7 +70,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
       case OrderStatus.IN_PRODUCTION: return 'bg-blue-100 text-blue-700';
       case OrderStatus.READY_TO_SHIP: return 'bg-green-100 text-green-700';
       case OrderStatus.SHIPPED: return 'bg-slate-100 text-slate-500';
-      case OrderStatus.CONFIRMED: return 'bg-indigo-100 text-indigo-700';
+      case OrderStatus.CONFIRMED: return 'bg-blue-100 text-blue-700';
       default: return 'bg-yellow-100 text-yellow-700';
     }
   };
@@ -262,12 +262,12 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
         <div className="flex gap-2 overflow-x-auto pb-1">
           <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex flex-shrink-0">
-            <button onClick={() => setViewMode('table')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('view_table')}</button>
-            <button onClick={() => setViewMode('calendar')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${viewMode === 'calendar' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}><Calendar size={14} className="mr-1" />{isMobile ? '' : t('view_calendar')}</button>
+            <button onClick={() => setViewMode('table')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('view_table')}</button>
+            <button onClick={() => setViewMode('calendar')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${viewMode === 'calendar' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}><Calendar size={14} className="mr-1" />{isMobile ? '' : t('view_calendar')}</button>
           </div>
           {viewMode === 'table' && (
             <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex flex-shrink-0">
-              <button onClick={() => setActiveTab('all')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'all' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '' : <Package size={14} className="mr-1" />}{isMobile ? t('tab_pending') : t('tab_pending')} <span className="ml-1 text-xs bg-slate-200 dark:bg-slate-600 px-1 rounded">{allOrders.length}</span></button>
+              <button onClick={() => setActiveTab('all')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'all' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '' : <Package size={14} className="mr-1" />}{isMobile ? t('tab_pending') : t('tab_pending')} <span className="ml-1 text-xs bg-slate-200 dark:bg-slate-600 px-1 rounded">{allOrders.length}</span></button>
               <button onClick={() => setActiveTab('ready')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'ready' ? 'bg-white dark:bg-slate-700 shadow text-green-600' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '' : <Truck size={14} className="mr-1" />}{isMobile ? t('tab_ready') : t('tab_ready')} <span className="ml-1 text-xs bg-green-100 text-green-700 px-1 rounded">{readyOrders.length}</span></button>
               <button onClick={() => setActiveTab('shipped')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'shipped' ? 'bg-white dark:bg-slate-700 shadow text-slate-600' : 'text-slate-600 dark:text-slate-400'}`}>{t('tab_shipped')} <span className="ml-1 text-xs bg-slate-200 dark:bg-slate-600 px-1 rounded">{shippedOrders.length}</span></button>
             </div>
@@ -276,7 +276,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
         <div className="flex gap-2 flex-wrap">
           {!isMobile && <button onClick={() => exportOrdersToExcel(displayOrders)} className="flex items-center px-3 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition text-sm" title={t('btn_export')}><Download size={16} className="mr-1" />{t('btn_export')}</button>}
           <button onClick={() => setShowExcelModal(true)} className="flex items-center px-3 md:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"><Upload size={16} className="mr-1 md:mr-2" />{isMobile ? '' : t('btn_import')}</button>
-          <button onClick={() => setShowParseModal(true)} className="flex items-center px-3 md:px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm"><Bot size={16} className="mr-1 md:mr-2" />{isMobile ? 'AI' : t('btn_import_ai')}</button>
+          <button onClick={() => setShowParseModal(true)} className="flex items-center px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"><Bot size={16} className="mr-1 md:mr-2" />{isMobile ? 'AI' : t('btn_import_ai')}</button>
         </div>
       </div>
 
@@ -354,7 +354,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
               <label className="block text-sm font-medium text-slate-700 mb-1">{t('label_notes')}</label>
               <textarea className="w-full border border-slate-300 rounded-lg p-3 text-sm h-20" value={workshopNote} onChange={(e) => setWorkshopNote(e.target.value)} />
             </div>
-            <button onClick={handleUpdateWorkshop} className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">{t('btn_update_workshop')}</button>
+            <button onClick={handleUpdateWorkshop} className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">{t('btn_update_workshop')}</button>
           </div>
         )}
       </Modal>
@@ -380,7 +380,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_prep_days')}</label><input type="number" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.prepDaysRequired || 0} onChange={(e) => setEditingOrder({ ...editingOrder, prepDaysRequired: parseInt(e.target.value) || 0 })} /></div>
             </div>
             <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_requirements')}</label><textarea className="w-full border border-slate-300 rounded-lg p-2 text-sm h-16" value={editingOrder.requirements} onChange={(e) => setEditingOrder({ ...editingOrder, requirements: e.target.value })} /></div>
-            <button onClick={handleSaveEdit} disabled={!editingOrder.client || !editingOrder.styleNo} className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50">{t('btn_save')}</button>
+            <button onClick={handleSaveEdit} disabled={!editingOrder.client || !editingOrder.styleNo} className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">{t('btn_save')}</button>
           </div>
         )}
       </Modal>
@@ -501,7 +501,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                             <button onClick={(e) => { e.stopPropagation(); onAcknowledgeOrder(order.id); }} className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded text-xs font-semibold animate-pulse inline-flex items-center"><AlertCircle size={10} className="mr-0.5" />{t('btn_ack_large')}</button>
                           )}
                           <button onClick={(e) => { e.stopPropagation(); setPrintOrder(order); }} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" title={t('print_packing_list')}><Printer size={14} /></button>
-                          {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(order); }} className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"><Edit2 size={14} /></button>}
+                          {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(order); }} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"><Edit2 size={14} /></button>}
                           {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="p-1 text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>}
                           {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                         </div>
@@ -514,8 +514,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                             <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_po')}</span><span className="font-mono text-slate-700 dark:text-slate-300">{order.piNo}</span></div>
                             <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_bl')}</span><span className="font-mono text-slate-700 dark:text-slate-300">{order.blNo || '-'}</span></div>
                             <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_pkg_per_cont')}</span><span className="text-slate-700 dark:text-slate-300">{order.packagesPerContainer}</span></div>
-                            <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_contact')}</span><span className="bg-indigo-50 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full text-xs">{order.contactPerson}</span></div>
-                            <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_trade_type')}</span><span className={`px-2 py-0.5 rounded text-xs ${order.tradeType === TradeType.BONDED ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>{order.tradeType === TradeType.BONDED ? t('trade_bonded') : t('trade_general')}</span></div>
+                            <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_contact')}</span><span className="bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full text-xs">{order.contactPerson}</span></div>
+                            <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_trade_type')}</span><span className={`px-2 py-0.5 rounded text-xs ${order.tradeType === TradeType.BONDED ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>{order.tradeType === TradeType.BONDED ? t('trade_bonded') : t('trade_general')}</span></div>
                             <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('loading_time')}</span><span className="text-slate-700 dark:text-slate-300">{getTimeText(order.loadingTimeSlot)}</span></div>
                             <div className="col-span-2 md:col-span-4 lg:col-span-6"><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_requirements')}</span><span className="text-slate-700 dark:text-slate-300">{order.requirements}</span></div>
                           </div>

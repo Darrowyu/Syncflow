@@ -21,7 +21,7 @@ const PrintPackingList: React.FC<PrintPackingListProps> = ({ order, inventory, o
                 <div className="flex items-center justify-between p-4 border-b no-print">
                     <h3 className="font-bold text-lg text-slate-800">装箱单预览</h3>
                     <div className="flex space-x-2">
-                        <button onClick={handlePrint} className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                        <button onClick={handlePrint} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                             <Printer size={16} className="mr-2" />打印
                         </button>
                         <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600"><X size={20} /></button>

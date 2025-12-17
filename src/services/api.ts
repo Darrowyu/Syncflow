@@ -1,4 +1,4 @@
-import { Order, ProductLine, InventoryItem, IncidentLog, Style, InventoryTransaction } from '../types';
+import { Order, ProductLine, InventoryItem, IncidentLog, Style, InventoryTransaction, InventoryAlert, InventoryAuditLog, BatchInventoryItem, PaginatedTransactions, TransactionQueryParams } from '../types';
 import { cacheGet, cacheSet, cacheClear } from '../utils/cache';
 
 const API_PORT = import.meta.env.VITE_API_PORT;
@@ -8,6 +8,8 @@ const API_BASE = API_PORT ? `${window.location.protocol}//${window.location.host
 interface ApiSuccess { success: true }
 interface ApiIdResponse { success: true; id: string | number }
 interface InventoryBalanceResponse { success: true; balance: number; gradeA: number; gradeB: number }
+interface BatchInventoryResponse { success: true; count: number; results: Array<{ styleNo: string; balance: number; gradeA: number; gradeB: number }>; errors?: Array<{ styleNo: string; error: string }> }
+interface PaginatedAuditLogs { data: InventoryAuditLog[]; total: number; page: number; pageSize: number; totalPages: number }
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -32,10 +34,41 @@ export const invalidateCache = (prefix?: string) => cacheClear(prefix);
 
 // 库存
 export const fetchInventory = () => cachedRequest('inventory', () => request<InventoryItem[]>('/inventory'));
-export const updateInventory = (styleNo: string, data: Partial<InventoryItem>) => request<ApiSuccess>(`/inventory/${styleNo}`, { method: 'PUT', body: JSON.stringify(data) });
-export const inventoryIn = (data: { styleNo: string; quantity: number; grade?: string; source?: string; note?: string }) => request<InventoryBalanceResponse>('/inventory/in', { method: 'POST', body: JSON.stringify(data) });
-export const inventoryOut = (data: { styleNo: string; quantity: number; grade?: string; source?: string; note?: string }) => request<InventoryBalanceResponse>('/inventory/out', { method: 'POST', body: JSON.stringify(data) });
-export const fetchInventoryTransactions = (styleNo?: string) => request<InventoryTransaction[]>(`/inventory/transactions${styleNo ? `?styleNo=${styleNo}` : ''}`);
+export const updateInventory = (styleNo: string, data: Partial<InventoryItem> & { reason?: string; operator?: string }) => request<ApiSuccess>(`/inventory/${styleNo}`, { method: 'PUT', body: JSON.stringify(data) });
+export const inventoryIn = (data: { styleNo: string; warehouseType?: string; packageSpec?: string; quantity: number; grade?: string; source?: string; note?: string; orderId?: string }) => request<InventoryBalanceResponse>('/inventory/in', { method: 'POST', body: JSON.stringify(data) });
+export const inventoryOut = (data: { styleNo: string; warehouseType?: string; packageSpec?: string; quantity: number; grade?: string; source?: string; note?: string; orderId?: string }) => request<InventoryBalanceResponse>('/inventory/out', { method: 'POST', body: JSON.stringify(data) });
+export const inventoryBatchIn = (items: BatchInventoryItem[]) => request<BatchInventoryResponse>('/inventory/batch-in', { method: 'POST', body: JSON.stringify({ items }) });
+export const inventoryBatchOut = (items: BatchInventoryItem[]) => request<BatchInventoryResponse>('/inventory/batch-out', { method: 'POST', body: JSON.stringify({ items }) });
+export const inventoryAdjust = (data: { styleNo: string; warehouseType?: string; packageSpec?: string; gradeA?: number; gradeB?: number; reason?: string; operator?: string }) => request<InventoryBalanceResponse>('/inventory/adjust', { method: 'POST', body: JSON.stringify(data) });
+export const fetchInventoryAlerts = () => request<InventoryAlert[]>('/inventory/alerts');
+export const setSafetyStock = (styleNo: string, data: { warehouseType?: string; packageSpec?: string; safetyStock: number }) => request<ApiSuccess>(`/inventory/${styleNo}/safety-stock`, { method: 'PUT', body: JSON.stringify(data) });
+export const lockInventory = (styleNo: string, data: { warehouseType?: string; packageSpec?: string; quantity: number; reason?: string; operator?: string }) => request<{ success: true; locked: number }>(`/inventory/${styleNo}/lock`, { method: 'POST', body: JSON.stringify(data) });
+export const unlockInventory = (styleNo: string, data: { warehouseType?: string; packageSpec?: string; quantity: number; reason?: string; operator?: string }) => request<{ success: true; locked: number }>(`/inventory/${styleNo}/unlock`, { method: 'POST', body: JSON.stringify(data) });
+export const fetchInventoryTransactions = (params?: TransactionQueryParams) => {
+  const searchParams = new URLSearchParams();
+  if (params?.styleNo) searchParams.append('styleNo', params.styleNo);
+  if (params?.warehouseType) searchParams.append('warehouseType', params.warehouseType);
+  if (params?.packageSpec) searchParams.append('packageSpec', params.packageSpec);
+  if (params?.type) searchParams.append('type', params.type);
+  if (params?.startDate) searchParams.append('startDate', params.startDate);
+  if (params?.endDate) searchParams.append('endDate', params.endDate);
+  if (params?.page) searchParams.append('page', params.page.toString());
+  if (params?.pageSize) searchParams.append('pageSize', params.pageSize.toString());
+  const query = searchParams.toString();
+  return request<PaginatedTransactions>(`/inventory/transactions${query ? `?${query}` : ''}`);
+};
+export const fetchInventoryAuditLogs = (params?: { styleNo?: string; warehouseType?: string; packageSpec?: string; action?: string; page?: number; pageSize?: number }) => {
+  const searchParams = new URLSearchParams();
+  if (params?.styleNo) searchParams.append('styleNo', params.styleNo);
+  if (params?.warehouseType) searchParams.append('warehouseType', params.warehouseType);
+  if (params?.packageSpec) searchParams.append('packageSpec', params.packageSpec);
+  if (params?.action) searchParams.append('action', params.action);
+  if (params?.page) searchParams.append('page', params.page.toString());
+  if (params?.pageSize) searchParams.append('pageSize', params.pageSize.toString());
+  const query = searchParams.toString();
+  return request<PaginatedAuditLogs>(`/inventory/audit-logs${query ? `?${query}` : ''}`);
+};
+export const exportInventory = () => request<{ exportedAt: string; count: number; data: InventoryItem[] }>('/inventory/export');
 
 // 产线
 export const fetchLines = () => cachedRequest('lines', () => request<ProductLine[]>('/lines'));

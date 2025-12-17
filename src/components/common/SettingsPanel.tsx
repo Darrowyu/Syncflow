@@ -92,7 +92,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
                             <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('ai_provider')}</label>
                             <div className="flex space-x-2">
                                 {[{ value: 'gemini' as AIProvider, label: 'Gemini' }, { value: 'deepseek' as AIProvider, label: 'DeepSeek' }].map(opt => (
-                                    <button key={opt.value} onClick={() => handleProviderChange(opt.value)} className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${aiProvider === opt.value ? 'bg-indigo-100 border-indigo-300 text-indigo-700 dark:bg-indigo-900 dark:border-indigo-700 dark:text-indigo-300' : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'}`}>{opt.label}</button>
+                                    <button key={opt.value} onClick={() => handleProviderChange(opt.value)} className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition ${aiProvider === opt.value ? 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900 dark:border-blue-700 dark:text-blue-300' : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'}`}>{opt.label}</button>
                                 ))}
                             </div>
                         </div>
@@ -103,7 +103,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
                                 <button onClick={() => setShowApiKey(!showApiKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">{showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}</button>
                             </div>
                         </div>
-                        <button onClick={handleSaveAI} className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition text-sm">{t('ai_save_config')}</button>
+                        <button onClick={handleSaveAI} className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition text-sm">{t('ai_save_config')}</button>
                         <p className="text-xs text-slate-500 dark:text-slate-400">{t('ai_config_desc')}</p>
                     </div>
                 </section>
@@ -111,7 +111,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
                     <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center"><Moon size={16} className="mr-2" />{t('theme_settings')}</h4>
                     <div className="flex space-x-2">
                         {[{ value: 'light', icon: <Sun size={16} />, label: t('theme_light') }, { value: 'dark', icon: <Moon size={16} />, label: t('theme_dark') }, { value: 'system', icon: <Monitor size={16} />, label: t('theme_system') }].map(opt => (
-                            <button key={opt.value} onClick={() => setTheme(opt.value as any)} className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition flex items-center justify-center space-x-1 ${theme === opt.value ? 'bg-indigo-100 border-indigo-300 text-indigo-700 dark:bg-indigo-900 dark:border-indigo-700 dark:text-indigo-300' : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'}`}>
+                            <button key={opt.value} onClick={() => setTheme(opt.value as any)} className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition flex items-center justify-center space-x-1 ${theme === opt.value ? 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900 dark:border-blue-700 dark:text-blue-300' : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'}`}>
                                 {opt.icon}<span>{opt.label}</span>
                             </button>
                         ))}

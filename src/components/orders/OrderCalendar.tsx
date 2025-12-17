@@ -110,18 +110,18 @@ const OrderCalendar: React.FC<OrderCalendarProps> = memo(({ orders, onSelectOrde
         return (
             <div 
                 key={dateStr || dayNum}
-                className={`${minHeight} border-r border-b border-slate-100 dark:border-slate-700 p-1 ${!isCurrentMonth ? 'bg-slate-50 dark:bg-slate-900/50' : ''} ${isToday ? 'bg-indigo-50 dark:bg-indigo-900/30' : ''} ${dragOrder ? 'hover:bg-blue-50 dark:hover:bg-blue-900/30' : ''}`}
+                className={`${minHeight} border-r border-b border-slate-100 dark:border-slate-700 p-1 ${!isCurrentMonth ? 'bg-slate-50 dark:bg-slate-900/50' : ''} ${isToday ? 'bg-blue-50 dark:bg-blue-900/30' : ''} ${dragOrder ? 'hover:bg-blue-50 dark:hover:bg-blue-900/30' : ''}`}
                 onDragOver={handleDragOver}
                 onDrop={(e) => dateStr && handleDrop(e, dateStr)}
             >
                 {isCurrentMonth && (
                     <>
                         <div className="flex items-center justify-between mb-1">
-                            <span className={`text-xs font-medium ${isToday ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500 dark:text-slate-400'}`}>{dayNum}</span>
+                            <span className={`text-xs font-medium ${isToday ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-slate-400'}`}>{dayNum}</span>
                             <div className="flex items-center space-x-1">
                                 {dayTons > 0 && <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">{dayTons.toFixed(1)}t</span>}
                                 {onCreateOrder && (
-                                    <button onClick={() => onCreateOrder(dateStr)} className="p-0.5 text-slate-300 hover:text-indigo-500 dark:text-slate-600 dark:hover:text-indigo-400" title="新建订单">
+                                    <button onClick={() => onCreateOrder(dateStr)} className="p-0.5 text-slate-300 hover:text-blue-500 dark:text-slate-600 dark:hover:text-blue-400" title="新建订单">
                                         <Plus size={12} />
                                     </button>
                                 )}
@@ -156,15 +156,15 @@ const OrderCalendar: React.FC<OrderCalendarProps> = memo(({ orders, onSelectOrde
             <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center space-x-4">
                     <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100 flex items-center">
-                        <Calendar size={20} className="mr-2 text-indigo-500" />
+                        <Calendar size={20} className="mr-2 text-blue-500" />
                         {t('shipping_calendar')}
                     </h3>
-                    <button onClick={goToday} className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 dark:bg-indigo-900 dark:text-indigo-300">
+                    <button onClick={goToday} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300">
                         {t('today_btn')}
                     </button>
                     <div className="bg-slate-100 dark:bg-slate-700 rounded p-0.5 flex text-xs">
-                        <button onClick={() => setViewMode('month')} className={`px-2 py-1 rounded transition ${viewMode === 'month' ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}`}>{t('month_view')}</button>
-                        <button onClick={() => setViewMode('week')} className={`px-2 py-1 rounded transition ${viewMode === 'week' ? 'bg-white dark:bg-slate-600 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}`}>{t('week_view')}</button>
+                        <button onClick={() => setViewMode('month')} className={`px-2 py-1 rounded transition ${viewMode === 'month' ? 'bg-white dark:bg-slate-600 shadow text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>{t('month_view')}</button>
+                        <button onClick={() => setViewMode('week')} className={`px-2 py-1 rounded transition ${viewMode === 'week' ? 'bg-white dark:bg-slate-600 shadow text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>{t('week_view')}</button>
                     </div>
                 </div>
                 <div className="flex items-center space-x-2">

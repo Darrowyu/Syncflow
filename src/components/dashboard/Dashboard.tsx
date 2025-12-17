@@ -45,7 +45,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, inventory, lines, inciden
       {/* 统计卡片 - 移动端2列，桌面端4列 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
         <StatCard icon={<Package size={20} />} iconBgClass="bg-blue-50 text-blue-600" label={t('stats_active_orders')} value={pendingOrders.length} />
-        <StatCard icon={<Truck size={20} />} iconBgClass="bg-indigo-50 text-indigo-600" label={t('stats_pending_volume')} value={`${totalTonsPending.toFixed(1)}t`} />
+        <StatCard icon={<Truck size={20} />} iconBgClass="bg-blue-50 text-blue-600" label={t('stats_pending_volume')} value={`${totalTonsPending.toFixed(1)}t`} />
         <StatCard icon={<CheckCircle size={20} />} iconBgClass="bg-green-50 text-green-600" label={t('stats_active_lines')} value={activeLines} suffix={`/${lines.length}`} />
         <StatCard icon={<AlertTriangle size={20} />} iconBgClass={criticalAlerts.length > 0 ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-400'} label={t('stats_critical_alerts')} value={criticalAlerts.length} valueClass={criticalAlerts.length > 0 ? 'text-red-600' : 'text-slate-800'} />
       </div>
@@ -72,7 +72,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, inventory, lines, inciden
           <InventoryChart data={chartData} />
         </div>
         <div className="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 max-h-64 md:max-h-80 overflow-y-auto order-1 lg:order-2">
-          <h3 className="text-base md:text-lg font-semibold text-slate-800 dark:text-slate-100 mb-3 md:mb-4 flex items-center sticky top-0 bg-white dark:bg-slate-800 pb-2"><Activity size={16} className="mr-2 text-indigo-500" />{t('inv_health')}</h3>
+          <h3 className="text-base md:text-lg font-semibold text-slate-800 dark:text-slate-100 mb-3 md:mb-4 flex items-center sticky top-0 bg-white dark:bg-slate-800 pb-2"><Activity size={16} className="mr-2 text-blue-500" />{t('inv_health')}</h3>
           <div className="space-y-3">
             {chartData.map((item) => {
               const isShortage = item.TotalAvailable < item.Demand;
@@ -122,7 +122,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, inventory, lines, inciden
         </div>
 
         <div className="bg-white dark:bg-slate-800 p-4 md:p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
-          <h3 className="text-base md:text-lg font-semibold text-slate-800 dark:text-slate-100 mb-3 md:mb-4 flex items-center"><Truck size={16} className="mr-2 text-indigo-500" />{t('upcoming_shipments')}</h3>
+          <h3 className="text-base md:text-lg font-semibold text-slate-800 dark:text-slate-100 mb-3 md:mb-4 flex items-center"><Truck size={16} className="mr-2 text-blue-500" />{t('upcoming_shipments')}</h3>
           <div className="space-y-2 md:space-y-3">
             {upcomingShipments.length === 0 && <p className="text-slate-400 dark:text-slate-500 text-sm text-center py-4">{t('no_orders_load')}</p>}
             {upcomingShipments.map(order => (
@@ -157,6 +157,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, inventory, lines, inciden
                 <span className="font-mono text-sm font-medium text-slate-700 dark:text-slate-200">{inc.styleNo}</span>
                 <span className="text-xs text-slate-400">{inc.timestamp}</span>
               </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">{inc.orderClient || '-'}</div>
               <div className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">{t(`reason_${inc.reason}` as keyof typeof t) || inc.reason}</div>
               {inc.note && <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{inc.note}</p>}
             </div>
@@ -165,10 +166,10 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, inventory, lines, inciden
         {/* 桌面端表格视图 */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400"><tr><th className="px-4 py-2">{t('table_date')}</th><th className="px-4 py-2">{t('table_style')}</th><th className="px-4 py-2">Reported By</th><th className="px-4 py-2">Issue</th><th className="px-4 py-2">Notes</th></tr></thead>
+            <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400"><tr><th className="px-4 py-2">{t('table_date')}</th><th className="px-4 py-2">{t('table_style')}</th><th className="px-4 py-2">{t('table_client')}</th><th className="px-4 py-2">{t('label_reason')}</th><th className="px-4 py-2">{t('label_notes')}</th></tr></thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {unresolvedIncidents.length === 0 && <tr><td colSpan={5} className="px-4 py-4 text-center text-slate-400 dark:text-slate-500">{t('no_incidents')}</td></tr>}
-              {unresolvedIncidents.map((inc) => (<tr key={inc.id}><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{inc.timestamp}</td><td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-200">{inc.styleNo}</td><td className="px-4 py-3"><span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-1 rounded text-xs">{inc.reportedBy}</span></td><td className="px-4 py-3 font-medium text-red-600 dark:text-red-400">{t(`reason_${inc.reason}` as keyof typeof t) || inc.reason}</td><td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-md truncate">{inc.note}</td></tr>))}
+              {unresolvedIncidents.map((inc) => (<tr key={inc.id}><td className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">{inc.timestamp}</td><td className="px-4 py-3 font-mono text-slate-700 dark:text-slate-200">{inc.styleNo}</td><td className="px-4 py-3 text-slate-700 dark:text-slate-300">{inc.orderClient || '-'}</td><td className="px-4 py-3 font-medium text-red-600 dark:text-red-400">{t(`reason_${inc.reason}` as keyof typeof t) || inc.reason}</td><td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-md truncate">{inc.note}</td></tr>))}
             </tbody>
           </table>
         </div>

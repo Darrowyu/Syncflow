@@ -103,7 +103,7 @@ export const fetchStyleLogs = (lineId?: number) => request<StyleChangeLog[]>(lin
 interface BackupData { version: string; exportedAt: string; orders: any[]; inventory: any[]; production_lines: any[]; styles: any[]; incidents: any[] }
 interface RestoreResponse { success: true; message: string }
 export const fetchBackup = () => request<BackupData>('/backup');
-export const restoreBackup = (data: BackupData) => request<RestoreResponse>('/restore', { method: 'POST', body: JSON.stringify(data) });
+export const restoreBackup = (data: BackupData) => request<RestoreResponse>('/restore', { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json', 'X-Confirm-Restore': 'CONFIRM_RESTORE' } });
 export const downloadBackup = async () => {
   const data = await fetchBackup();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });

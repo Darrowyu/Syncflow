@@ -45,6 +45,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        const confirmRestore = window.confirm(`确定要恢复备份文件 "${file.name}" ?\n\n警告：此操作将覆盖当前所有数据，无法撤销！`); // 二次确认
+        if (!confirmRestore) { e.target.value = ''; return; }
         setIsRestoring(true);
         setMessage(null);
         try {

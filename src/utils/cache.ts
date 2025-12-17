@@ -1,8 +1,8 @@
 // 细粒度内存缓存，减少重复API请求
+import { CACHE_TTL } from '../constants/config';
+
 interface CacheItem<T> { data: T; timestamp: number; ttl: number }
 const cache = new Map<string, CacheItem<unknown>>();
-const DEFAULT_TTL = 30000; // 30秒缓存
-const TTL_CONFIG: Record<string, number> = { inventory: 15000, orders: 30000, lines: 60000, styles: 120000, incidents: 30000 }; // 不同数据类型的缓存时间
 
 export const cacheGet = <T>(key: string): T | null => {
   const item = cache.get(key) as CacheItem<T> | undefined;
@@ -12,7 +12,7 @@ export const cacheGet = <T>(key: string): T | null => {
 };
 
 export const cacheSet = <T>(key: string, data: T, customTtl?: number): void => {
-  const ttl = customTtl || TTL_CONFIG[key] || DEFAULT_TTL;
+  const ttl = customTtl || (CACHE_TTL as Record<string, number>)[key] || CACHE_TTL.default;
   cache.set(key, { data, timestamp: Date.now(), ttl });
 };
 

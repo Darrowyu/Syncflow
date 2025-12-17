@@ -1,10 +1,10 @@
-import { Order, OrderStatus, TradeType, ProductLine, InventoryItem, LineStatus, IncidentLog, LoadingTimeSlot, WorkshopCommStatus } from '../types';
+import { Order, OrderStatus, TradeType, ProductLine, InventoryItem, LineStatus, IncidentLog, LoadingTimeSlot, WorkshopCommStatus, WarehouseType, PackageSpec } from '../types';
 
 // 初始数据仅用于备用/演示，实际数据从数据库加载
 export const INITIAL_INVENTORY: InventoryItem[] = [
-  { styleNo: 'BE3250', currentStock: 80, gradeA: 80, gradeB: 0, stockTMinus1: 80, lockedForToday: 0 },
-  { styleNo: 'BE2250', currentStock: 5, gradeA: 5, gradeB: 0, stockTMinus1: 5, lockedForToday: 0 },
-  { styleNo: 'BE3340', currentStock: 250, gradeA: 250, gradeB: 0, stockTMinus1: 250, lockedForToday: 0 },
+  { styleNo: 'BE3250', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 80, gradeA: 80, gradeB: 0, stockTMinus1: 80, lockedForToday: 0 },
+  { styleNo: 'BE2250', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 5, gradeA: 5, gradeB: 0, stockTMinus1: 5, lockedForToday: 0 },
+  { styleNo: 'BE3340', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 250, gradeA: 250, gradeB: 0, stockTMinus1: 250, lockedForToday: 0 },
 ];
 
 export const INITIAL_LINES: ProductLine[] = [

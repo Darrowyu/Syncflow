@@ -13,6 +13,7 @@ const mapOrder = (o: any): Order => ({
 });
 
 const mapLine = (l: any): ProductLine => ({ ...l, status: l.status as LineStatus });
+const inventoryKey = (styleNo: string, wt?: string, ps?: string): string => `${styleNo}-${wt || 'general'}-${ps || '820kg'}`; // 库存唯一标识
 
 export function useData() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -42,6 +43,7 @@ export function useData() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // ========== 订单操作 ==========
   const acknowledgeOrder = useCallback(async (id: string) => {
     try {
       await patchOrder(id, { largeOrderAck: true });
@@ -74,6 +76,7 @@ export function useData() {
     setLastSyncTime(new Date());
   }, []);
 
+  // ========== 产线操作 ==========
   const updateLineData = useCallback(async (id: number, updates: Partial<ProductLine>) => {
     const line = lines.find(l => l.id === id);
     if (!line) return;
@@ -81,13 +84,13 @@ export function useData() {
     let previousStyle: string | undefined;
     const subLineChanges: { subName: string; fromStyle: string; toStyle: string }[] = [];
     const now = new Date().toISOString();
-    
+
     // 主线款号变更
     if (updates.currentStyle !== undefined && updates.currentStyle !== line.currentStyle) {
       newLine.styleChangedAt = now;
       previousStyle = line.currentStyle;
     }
-    
+
     // 分支款号变更
     if (updates.subLines && line.subLines) {
       updates.subLines.forEach((newSub) => {
@@ -100,7 +103,7 @@ export function useData() {
         newLine.styleChangedAt = now;
       }
     }
-    
+
     await apiUpdateLine(id, { ...newLine, previousStyle, subLineChanges, changeTime: now });
     setLines(prev => prev.map(l => l.id === id ? newLine : l));
     setLastSyncTime(new Date());
@@ -142,6 +145,7 @@ export function useData() {
     toast.success('订单已删除');
   }, []);
 
+  // ========== 异常日志操作 ==========
   const logIncident = useCallback(async (incident: Omit<IncidentLog, 'id' | 'timestamp'>) => {
     try {
       const newInc = { ...incident, id: Date.now().toString(36), timestamp: new Date().toLocaleString() };
@@ -152,6 +156,7 @@ export function useData() {
     } catch (e) { toast.error((e as Error).message); }
   }, []);
 
+  // ========== 款号操作 ==========
   const addStyle = useCallback(async (data: Omit<Style, 'id'>) => {
     await apiCreateStyle(data);
     await loadData();
@@ -172,13 +177,14 @@ export function useData() {
     toast.success('款号已删除');
   }, []);
 
+  // ========== 库存操作 ==========
   const stockIn = useCallback(async (styleNo: string, quantity: number, grade?: string, source?: string, note?: string, warehouseType?: string, packageSpec?: string) => {
     try {
       const res = await inventoryIn({ styleNo, warehouseType, packageSpec, quantity, grade, source, note });
+      const key = inventoryKey(styleNo, warehouseType, packageSpec);
       setInventory(prev => {
-        const key = `${styleNo}-${warehouseType || 'general'}-${packageSpec || '820kg'}`;
-        const exists = prev.some(i => `${i.styleNo}-${i.warehouseType}-${i.packageSpec}` === key);
-        if (exists) return prev.map(i => `${i.styleNo}-${i.warehouseType}-${i.packageSpec}` === key ? { ...i, currentStock: res.balance, gradeA: res.gradeA, gradeB: res.gradeB } : i);
+        const exists = prev.some(i => inventoryKey(i.styleNo, i.warehouseType, i.packageSpec) === key);
+        if (exists) return prev.map(i => inventoryKey(i.styleNo, i.warehouseType, i.packageSpec) === key ? { ...i, currentStock: res.balance, gradeA: res.gradeA, gradeB: res.gradeB } : i);
         return [...prev, { styleNo, warehouseType: (warehouseType || WarehouseType.GENERAL) as WarehouseType, packageSpec: (packageSpec || PackageSpec.KG820) as PackageSpec, currentStock: res.balance, gradeA: res.gradeA, gradeB: res.gradeB, stockTMinus1: 0, lockedForToday: 0 }];
       });
       setLastSyncTime(new Date());
@@ -190,8 +196,8 @@ export function useData() {
   const stockOut = useCallback(async (styleNo: string, quantity: number, grade?: string, source?: string, note?: string, warehouseType?: string, packageSpec?: string) => {
     try {
       const res = await inventoryOut({ styleNo, warehouseType, packageSpec, quantity, grade, source, note });
-      const key = `${styleNo}-${warehouseType || 'general'}-${packageSpec || '820kg'}`;
-      setInventory(prev => prev.map(i => `${i.styleNo}-${i.warehouseType}-${i.packageSpec}` === key ? { ...i, currentStock: res.balance, gradeA: res.gradeA, gradeB: res.gradeB } : i));
+      const key = inventoryKey(styleNo, warehouseType, packageSpec);
+      setInventory(prev => prev.map(i => inventoryKey(i.styleNo, i.warehouseType, i.packageSpec) === key ? { ...i, currentStock: res.balance, gradeA: res.gradeA, gradeB: res.gradeB } : i));
       setLastSyncTime(new Date());
       toast.success(`出库成功: ${styleNo} -${quantity}t`);
       return res.balance;
@@ -199,10 +205,10 @@ export function useData() {
   }, []);
 
   const updateStock = useCallback(async (styleNo: string, newGradeA: number, newGradeB: number, warehouseType?: string, packageSpec?: string, reason?: string) => {
-    const key = `${styleNo}-${warehouseType || 'general'}-${packageSpec || '820kg'}`;
+    const key = inventoryKey(styleNo, warehouseType, packageSpec);
     try {
       const res = await inventoryAdjust({ styleNo, warehouseType, packageSpec, gradeA: newGradeA, gradeB: newGradeB, reason: reason || '盘点调整' }); // 单次API调用
-      setInventory(prev => prev.map(i => `${i.styleNo}-${i.warehouseType}-${i.packageSpec}` === key ? { ...i, gradeA: res.gradeA, gradeB: res.gradeB, currentStock: res.balance } : i));
+      setInventory(prev => prev.map(i => inventoryKey(i.styleNo, i.warehouseType, i.packageSpec) === key ? { ...i, gradeA: res.gradeA, gradeB: res.gradeB, currentStock: res.balance } : i));
       setLastSyncTime(new Date());
       toast.success('库存调整成功');
     } catch (e) { toast.error((e as Error).message); throw e; }
@@ -217,20 +223,20 @@ export function useData() {
   }, []);
 
   const setSafetyStock = useCallback(async (styleNo: string, safetyStock: number, warehouseType?: string, packageSpec?: string) => {
-    const key = `${styleNo}-${warehouseType || 'general'}-${packageSpec || '820kg'}`;
+    const key = inventoryKey(styleNo, warehouseType, packageSpec);
     try {
       await apiSetSafetyStock(styleNo, { warehouseType, packageSpec, safetyStock });
-      setInventory(prev => prev.map(i => `${i.styleNo}-${i.warehouseType}-${i.packageSpec}` === key ? { ...i, safetyStock } : i));
+      setInventory(prev => prev.map(i => inventoryKey(i.styleNo, i.warehouseType, i.packageSpec) === key ? { ...i, safetyStock } : i));
       setLastSyncTime(new Date());
       toast.success('安全库存已设置');
     } catch (e) { toast.error((e as Error).message); throw e; }
   }, []);
 
   const lockStock = useCallback(async (styleNo: string, quantity: number, warehouseType?: string, packageSpec?: string, reason?: string) => {
-    const key = `${styleNo}-${warehouseType || 'general'}-${packageSpec || '820kg'}`;
+    const key = inventoryKey(styleNo, warehouseType, packageSpec);
     try {
       const res = await apiLockInventory(styleNo, { warehouseType, packageSpec, quantity, reason });
-      setInventory(prev => prev.map(i => `${i.styleNo}-${i.warehouseType}-${i.packageSpec}` === key ? { ...i, lockedForToday: res.locked } : i));
+      setInventory(prev => prev.map(i => inventoryKey(i.styleNo, i.warehouseType, i.packageSpec) === key ? { ...i, lockedForToday: res.locked } : i));
       setLastSyncTime(new Date());
       toast.success(`已锁定 ${quantity}t`);
       return res.locked;
@@ -238,10 +244,10 @@ export function useData() {
   }, []);
 
   const unlockStock = useCallback(async (styleNo: string, quantity: number, warehouseType?: string, packageSpec?: string, reason?: string) => {
-    const key = `${styleNo}-${warehouseType || 'general'}-${packageSpec || '820kg'}`;
+    const key = inventoryKey(styleNo, warehouseType, packageSpec);
     try {
       const res = await apiUnlockInventory(styleNo, { warehouseType, packageSpec, quantity, reason });
-      setInventory(prev => prev.map(i => `${i.styleNo}-${i.warehouseType}-${i.packageSpec}` === key ? { ...i, lockedForToday: res.locked } : i));
+      setInventory(prev => prev.map(i => inventoryKey(i.styleNo, i.warehouseType, i.packageSpec) === key ? { ...i, lockedForToday: res.locked } : i));
       setLastSyncTime(new Date());
       toast.success(`已解锁 ${quantity}t`);
       return res.locked;

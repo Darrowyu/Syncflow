@@ -379,9 +379,17 @@ app.patch('/api/orders/:id', asyncHandler((req, res) => {
   const updates = req.body;
   const fieldMap = { date: 'date', client: 'client', styleNo: 'style_no', piNo: 'pi_no', lineId: 'line_id', blNo: 'bl_no', totalTons: 'total_tons', containers: 'containers', packagesPerContainer: 'packages_per_container', port: 'port', contactPerson: 'contact_person', tradeType: 'trade_type', requirements: 'requirements', status: 'status', isLargeOrder: 'is_large_order', largeOrderAck: 'large_order_ack', loadingTimeSlot: 'loading_time_slot', expectedShipDate: 'expected_ship_date', workshopCommStatus: 'workshop_comm_status', workshopNote: 'workshop_note', prepDaysRequired: 'prep_days_required' };
   const boolFields = ['isLargeOrder', 'largeOrderAck'];
+  const validUpdates = []; // 收集有效更新
   for (const [k, v] of Object.entries(updates)) {
-    if (fieldMap[k]) run(`UPDATE orders SET ${fieldMap[k]} = ? WHERE id = ?`, [boolFields.includes(k) ? (v ? 1 : 0) : v, req.params.id]);
+    if (!Object.prototype.hasOwnProperty.call(fieldMap, k)) continue; // 白名单验证+原型污染防护
+    validUpdates.push({ field: fieldMap[k], value: boolFields.includes(k) ? (v ? 1 : 0) : v });
   }
+  if (validUpdates.length === 0) return res.json({ success: true }); // 无有效更新直接返回
+  withTransaction(() => { // 事务保护确保原子性
+    for (const { field, value } of validUpdates) {
+      runNoSave(`UPDATE orders SET ${field} = ? WHERE id = ?`, [value, req.params.id]);
+    }
+  });
   res.json({ success: true });
 }));
 
@@ -460,20 +468,23 @@ app.get('/api/backup', asyncHandler((req, res) => {
 }));
 
 app.post('/api/restore', asyncHandler((req, res) => {
+  const confirmToken = req.headers['x-confirm-restore']; // 安全验证：需要确认令牌
+  if (confirmToken !== 'CONFIRM_RESTORE') return res.status(403).json({ error: '危险操作：需要确认令牌', requiredHeader: 'X-Confirm-Restore: CONFIRM_RESTORE' });
   const data = req.body;
   if (!data.version || !data.orders) return res.status(400).json({ error: '无效的备份文件格式' });
-  const db = getDb();
-  db.run('DELETE FROM orders');
-  db.run('DELETE FROM inventory');
-  db.run('DELETE FROM production_lines');
-  db.run('DELETE FROM styles');
-  db.run('DELETE FROM incidents');
-  data.orders?.forEach(o => run('INSERT INTO orders (id, date, client, style_no, pi_no, line_id, bl_no, total_tons, containers, packages_per_container, port, contact_person, trade_type, requirements, status, is_large_order, large_order_ack, loading_time_slot, expected_ship_date, workshop_comm_status, workshop_note, prep_days_required) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [o.id, o.date, o.client, o.style_no, o.pi_no, o.line_id, o.bl_no, o.total_tons, o.containers, o.packages_per_container, o.port, o.contact_person, o.trade_type, o.requirements, o.status, o.is_large_order, o.large_order_ack, o.loading_time_slot, o.expected_ship_date, o.workshop_comm_status, o.workshop_note, o.prep_days_required]));
-  data.inventory?.forEach(i => run('INSERT INTO inventory (id, style_no, current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today) VALUES (?, ?, ?, ?, ?, ?, ?)', [i.id, i.style_no, i.current_stock, i.grade_a, i.grade_b, i.stock_t_minus_1, i.locked_for_today]));
-  data.production_lines?.forEach(l => run('INSERT INTO production_lines (id, name, status, current_style, daily_capacity, export_capacity, note, style_changed_at, sub_lines) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [l.id, l.name, l.status, l.current_style, l.daily_capacity, l.export_capacity, l.note, l.style_changed_at, l.sub_lines]));
-  data.styles?.forEach(s => run('INSERT INTO styles (id, style_no, name, category, unit_weight, note) VALUES (?, ?, ?, ?, ?, ?)', [s.id, s.style_no, s.name, s.category, s.unit_weight, s.note]));
-  data.incidents?.forEach(i => run('INSERT INTO incidents (id, timestamp, style_no, order_client, reported_by, reason, note, resolved, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [i.id, i.timestamp, i.style_no, i.order_client, i.reported_by, i.reason, i.note, i.resolved, i.resolved_at]));
-  saveDatabase();
+  withTransaction(() => { // 事务保护确保恢复操作原子性
+    const db = getDb();
+    db.run('DELETE FROM orders');
+    db.run('DELETE FROM inventory');
+    db.run('DELETE FROM production_lines');
+    db.run('DELETE FROM styles');
+    db.run('DELETE FROM incidents');
+    data.orders?.forEach(o => runNoSave('INSERT INTO orders (id, date, client, style_no, pi_no, line_id, bl_no, total_tons, containers, packages_per_container, port, contact_person, trade_type, requirements, status, is_large_order, large_order_ack, loading_time_slot, expected_ship_date, workshop_comm_status, workshop_note, prep_days_required) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [o.id, o.date, o.client, o.style_no, o.pi_no, o.line_id, o.bl_no, o.total_tons, o.containers, o.packages_per_container, o.port, o.contact_person, o.trade_type, o.requirements, o.status, o.is_large_order, o.large_order_ack, o.loading_time_slot, o.expected_ship_date, o.workshop_comm_status, o.workshop_note, o.prep_days_required]));
+    data.inventory?.forEach(i => runNoSave('INSERT INTO inventory (id, style_no, current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today) VALUES (?, ?, ?, ?, ?, ?, ?)', [i.id, i.style_no, i.current_stock, i.grade_a, i.grade_b, i.stock_t_minus_1, i.locked_for_today]));
+    data.production_lines?.forEach(l => runNoSave('INSERT INTO production_lines (id, name, status, current_style, daily_capacity, export_capacity, note, style_changed_at, sub_lines) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [l.id, l.name, l.status, l.current_style, l.daily_capacity, l.export_capacity, l.note, l.style_changed_at, l.sub_lines]));
+    data.styles?.forEach(s => runNoSave('INSERT INTO styles (id, style_no, name, category, unit_weight, note) VALUES (?, ?, ?, ?, ?, ?)', [s.id, s.style_no, s.name, s.category, s.unit_weight, s.note]));
+    data.incidents?.forEach(i => runNoSave('INSERT INTO incidents (id, timestamp, style_no, order_client, reported_by, reason, note, resolved, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [i.id, i.timestamp, i.style_no, i.order_client, i.reported_by, i.reason, i.note, i.resolved, i.resolved_at]));
+  });
   res.json({ success: true, message: `已恢复 ${data.orders?.length || 0} 条订单, ${data.inventory?.length || 0} 条库存` });
 }));
 

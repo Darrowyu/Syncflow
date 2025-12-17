@@ -1,22 +1,16 @@
 import React from 'react';
-import { Order, InventoryItem, WarehouseType, PackageSpec } from '../../types';
+import { Order, InventoryItem, WarehouseType, PackageSpec, InventoryTransactionDisplay, StockModalState, StockForm, LockModalState, LockForm, SafetyModalState } from '../../types';
 import { useLanguage } from '../../i18n';
 import { Plus, Minus, Edit2, History, Lock, Settings, AlertOctagon, Factory, FileText } from 'lucide-react';
 import { Modal } from '../common';
 
-interface Transaction { id: number; styleNo: string; warehouseType?: string; packageSpec?: string; type: string; grade?: string; quantity: number; balance: number; source?: string; note?: string; createdAt: string; }
-interface StockModalState { type: 'in' | 'out' | 'edit' | 'production'; styleNo: string; warehouseType: string; packageSpec: string; lineId?: number; subLineId?: string; pendingQty?: number; }
-interface StockForm { quantity: number; grade: string; gradeA: number; gradeB: number; source: string; note: string; warehouseType: WarehouseType; packageSpec: PackageSpec; }
-interface LockModalState { styleNo: string; warehouseType: string; packageSpec: string; currentLocked: number; currentStock: number; }
-interface LockForm { quantity: number; reason: string; }
-interface SafetyModalState { styleNo: string; warehouseType: string; packageSpec: string; currentSafety: number; }
 
 interface WarehouseModalsProps {
   inventory: InventoryItem[];
   showStockModal: StockModalState | null;
   stockForm: StockForm;
   showHistoryModal: string | null;
-  transactions: Transaction[];
+  transactions: InventoryTransactionDisplay[];
   showIncidentModal: boolean;
   selectedOrder: Order | null;
   incidentReason: string;

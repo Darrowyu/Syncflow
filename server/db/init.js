@@ -85,6 +85,8 @@ export async function initDatabase() {
     try { db.run("ALTER TABLE inventory_transactions ADD COLUMN order_id TEXT"); } catch (e) {}
     // 迁移：创建库存审计日志表
     db.run("CREATE TABLE IF NOT EXISTS inventory_audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, style_no TEXT NOT NULL, warehouse_type TEXT DEFAULT 'general', package_spec TEXT DEFAULT '820kg', action TEXT NOT NULL, before_grade_a REAL DEFAULT 0, before_grade_b REAL DEFAULT 0, after_grade_a REAL DEFAULT 0, after_grade_b REAL DEFAULT 0, reason TEXT, operator TEXT DEFAULT 'system', created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+    // 迁移：添加订单多产线字段
+    try { db.run("ALTER TABLE orders ADD COLUMN line_ids TEXT"); } catch (e) {}
     // 迁移：添加索引优化查询性能
     db.run("CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(date)");
     db.run("CREATE INDEX IF NOT EXISTS idx_orders_style_no ON orders(style_no)");
@@ -96,6 +98,20 @@ export async function initDatabase() {
     db.run("CREATE INDEX IF NOT EXISTS idx_inventory_transactions_order_id ON inventory_transactions(order_id)");
     db.run("CREATE INDEX IF NOT EXISTS idx_inventory_audit_logs_style_no ON inventory_audit_logs(style_no)");
     db.run("CREATE INDEX IF NOT EXISTS idx_inventory_safety_stock ON inventory(safety_stock)");
+    // 迁移：创建客户表
+    db.run("CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, contact_person TEXT, phone TEXT, email TEXT, address TEXT, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)");
+    db.run("CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client)");
+    // 迁移：从订单中提取客户自动创建
+    try {
+      const clientsResult = db.exec("SELECT DISTINCT client FROM orders WHERE client IS NOT NULL AND client != ''");
+      if (clientsResult.length > 0) {
+        clientsResult[0].values.forEach(row => {
+          const clientName = row[0];
+          if (clientName) db.run(`INSERT OR IGNORE INTO customers (name) VALUES ('${clientName.replace(/'/g, "''")}')`);
+        });
+      }
+    } catch (e) { console.error('Customer migration error:', e); }
     saveDatabase();
   } else {
     db = new SQL.Database();

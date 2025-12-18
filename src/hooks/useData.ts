@@ -159,9 +159,12 @@ export function useData() {
   // ========== 款号操作 ==========
   const addStyle = useCallback(async (data: Omit<Style, 'id'>) => {
     await apiCreateStyle(data);
-    await loadData();
+    invalidateCache('styles'); // 清除缓存
+    const stylesData = await fetchStyles(); // 只刷新款号数据
+    setStyles(stylesData);
+    setLastSyncTime(new Date());
     toast.success('款号已添加');
-  }, [loadData]);
+  }, []);
 
   const updateStyleData = useCallback(async (id: number, data: Partial<Style>) => {
     await apiUpdateStyle(id, data);

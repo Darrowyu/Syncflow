@@ -356,28 +356,28 @@ app.get('/api/style-logs/:lineId', asyncHandler((req, res) => {
 
 // ========== 订单 API ==========
 app.get('/api/orders', asyncHandler((req, res) => {
-  const rows = query('SELECT id, date, client, style_no as styleNo, pi_no as piNo, line_id as lineId, bl_no as blNo, total_tons as totalTons, containers, packages_per_container as packagesPerContainer, port, contact_person as contactPerson, trade_type as tradeType, requirements, status, is_large_order as isLargeOrder, large_order_ack as largeOrderAck, loading_time_slot as loadingTimeSlot, expected_ship_date as expectedShipDate, workshop_comm_status as workshopCommStatus, workshop_note as workshopNote, prep_days_required as prepDaysRequired FROM orders ORDER BY date DESC');
+  const rows = query('SELECT id, date, client, style_no as styleNo, pi_no as piNo, line_id as lineId, line_ids as lineIds, bl_no as blNo, total_tons as totalTons, containers, packages_per_container as packagesPerContainer, port, contact_person as contactPerson, trade_type as tradeType, requirements, status, is_large_order as isLargeOrder, large_order_ack as largeOrderAck, loading_time_slot as loadingTimeSlot, expected_ship_date as expectedShipDate, workshop_comm_status as workshopCommStatus, workshop_note as workshopNote, prep_days_required as prepDaysRequired FROM orders ORDER BY date DESC');
   res.json(rows.map(r => ({ ...r, isLargeOrder: !!r.isLargeOrder, largeOrderAck: !!r.largeOrderAck })));
 }));
 
 app.post('/api/orders', asyncHandler((req, res) => {
   const o = req.body;
   const id = o.id || Date.now().toString(36);
-  run('INSERT INTO orders (id, date, client, style_no, pi_no, line_id, bl_no, total_tons, containers, packages_per_container, port, contact_person, trade_type, requirements, status, is_large_order, large_order_ack, loading_time_slot, expected_ship_date, workshop_comm_status, workshop_note, prep_days_required) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, o.date, o.client, o.styleNo, o.piNo, o.lineId, o.blNo, o.totalTons, o.containers, o.packagesPerContainer, o.port, o.contactPerson, o.tradeType, o.requirements, o.status || 'Pending', o.isLargeOrder ? 1 : 0, o.largeOrderAck ? 1 : 0, o.loadingTimeSlot || 'Flexible', o.expectedShipDate, o.workshopCommStatus || 'NotStarted', o.workshopNote, o.prepDaysRequired || 0]);
+  run('INSERT INTO orders (id, date, client, style_no, pi_no, line_id, line_ids, bl_no, total_tons, containers, packages_per_container, port, contact_person, trade_type, requirements, status, is_large_order, large_order_ack, loading_time_slot, expected_ship_date, workshop_comm_status, workshop_note, prep_days_required) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, o.date, o.client, o.styleNo, o.piNo, o.lineId || null, o.lineIds || null, o.blNo, o.totalTons, o.containers || 1, o.packagesPerContainer || 30, o.port, o.contactPerson, o.tradeType, o.requirements, o.status || 'Pending', o.isLargeOrder ? 1 : 0, o.largeOrderAck ? 1 : 0, o.loadingTimeSlot || 'Flexible', o.expectedShipDate || null, o.workshopCommStatus || 'NotStarted', o.workshopNote || null, o.prepDaysRequired || 0]);
   res.json({ success: true, id });
 }));
 
 app.put('/api/orders/:id', asyncHandler((req, res) => {
   const o = req.body;
-  run('UPDATE orders SET date=?, client=?, style_no=?, pi_no=?, line_id=?, bl_no=?, total_tons=?, containers=?, packages_per_container=?, port=?, contact_person=?, trade_type=?, requirements=?, status=?, is_large_order=?, large_order_ack=?, loading_time_slot=?, expected_ship_date=?, workshop_comm_status=?, workshop_note=?, prep_days_required=? WHERE id=?',
-    [o.date, o.client, o.styleNo, o.piNo, o.lineId, o.blNo, o.totalTons, o.containers, o.packagesPerContainer, o.port, o.contactPerson, o.tradeType, o.requirements, o.status, o.isLargeOrder ? 1 : 0, o.largeOrderAck ? 1 : 0, o.loadingTimeSlot, o.expectedShipDate, o.workshopCommStatus, o.workshopNote, o.prepDaysRequired, req.params.id]);
+  run('UPDATE orders SET date=?, client=?, style_no=?, pi_no=?, line_id=?, line_ids=?, bl_no=?, total_tons=?, containers=?, packages_per_container=?, port=?, contact_person=?, trade_type=?, requirements=?, status=?, is_large_order=?, large_order_ack=?, loading_time_slot=?, expected_ship_date=?, workshop_comm_status=?, workshop_note=?, prep_days_required=? WHERE id=?',
+    [o.date, o.client, o.styleNo, o.piNo, o.lineId, o.lineIds, o.blNo, o.totalTons, o.containers, o.packagesPerContainer, o.port, o.contactPerson, o.tradeType, o.requirements, o.status, o.isLargeOrder ? 1 : 0, o.largeOrderAck ? 1 : 0, o.loadingTimeSlot, o.expectedShipDate, o.workshopCommStatus, o.workshopNote, o.prepDaysRequired, req.params.id]);
   res.json({ success: true });
 }));
 
 app.patch('/api/orders/:id', asyncHandler((req, res) => {
   const updates = req.body;
-  const fieldMap = { date: 'date', client: 'client', styleNo: 'style_no', piNo: 'pi_no', lineId: 'line_id', blNo: 'bl_no', totalTons: 'total_tons', containers: 'containers', packagesPerContainer: 'packages_per_container', port: 'port', contactPerson: 'contact_person', tradeType: 'trade_type', requirements: 'requirements', status: 'status', isLargeOrder: 'is_large_order', largeOrderAck: 'large_order_ack', loadingTimeSlot: 'loading_time_slot', expectedShipDate: 'expected_ship_date', workshopCommStatus: 'workshop_comm_status', workshopNote: 'workshop_note', prepDaysRequired: 'prep_days_required' };
+  const fieldMap = { date: 'date', client: 'client', styleNo: 'style_no', piNo: 'pi_no', lineId: 'line_id', lineIds: 'line_ids', blNo: 'bl_no', totalTons: 'total_tons', containers: 'containers', packagesPerContainer: 'packages_per_container', port: 'port', contactPerson: 'contact_person', tradeType: 'trade_type', requirements: 'requirements', status: 'status', isLargeOrder: 'is_large_order', largeOrderAck: 'large_order_ack', loadingTimeSlot: 'loading_time_slot', expectedShipDate: 'expected_ship_date', workshopCommStatus: 'workshop_comm_status', workshopNote: 'workshop_note', prepDaysRequired: 'prep_days_required' };
   const boolFields = ['isLargeOrder', 'largeOrderAck'];
   const validUpdates = []; // 收集有效更新
   for (const [k, v] of Object.entries(updates)) {
@@ -420,6 +420,67 @@ app.put('/api/styles/:id', asyncHandler((req, res) => {
 app.delete('/api/styles/:id', asyncHandler((req, res) => {
   run('DELETE FROM styles WHERE id = ?', [parseInt(req.params.id, 10)]);
   res.json({ success: true });
+}));
+
+// ========== 客户 API ==========
+app.get('/api/customers', asyncHandler((req, res) => {
+  const rows = query('SELECT id, name, contact_person as contactPerson, phone, email, address, note, created_at as createdAt, updated_at as updatedAt FROM customers ORDER BY name');
+  res.json(rows);
+}));
+
+app.get('/api/customers/:id', asyncHandler((req, res) => {
+  const customer = queryWithParams('SELECT id, name, contact_person as contactPerson, phone, email, address, note, created_at as createdAt, updated_at as updatedAt FROM customers WHERE id = ?', [parseInt(req.params.id, 10)])[0];
+  if (!customer) return res.status(404).json({ error: '客户不存在' });
+  res.json(customer);
+}));
+
+app.get('/api/customers/:id/stats', asyncHandler((req, res) => {
+  const customerId = parseInt(req.params.id, 10);
+  const customer = queryWithParams('SELECT name FROM customers WHERE id = ?', [customerId])[0];
+  if (!customer) return res.status(404).json({ error: '客户不存在' });
+  const stats = queryWithParams(`SELECT COUNT(*) as orderCount, COALESCE(SUM(total_tons), 0) as totalTons, COALESCE(SUM(containers), 0) as totalContainers, MIN(date) as firstOrderDate, MAX(date) as lastOrderDate FROM orders WHERE client = ?`, [customer.name])[0];
+  const topStyles = queryWithParams(`SELECT style_no as styleNo, SUM(total_tons) as tons FROM orders WHERE client = ? GROUP BY style_no ORDER BY tons DESC LIMIT 5`, [customer.name]);
+  res.json({ customerId, customerName: customer.name, ...stats, topStyles });
+}));
+
+app.get('/api/customers/:id/orders', asyncHandler((req, res) => {
+  const customerId = parseInt(req.params.id, 10);
+  const customer = queryWithParams('SELECT name FROM customers WHERE id = ?', [customerId])[0];
+  if (!customer) return res.status(404).json({ error: '客户不存在' });
+  const rows = queryWithParams('SELECT id, date, style_no as styleNo, pi_no as piNo, total_tons as totalTons, containers, port, status FROM orders WHERE client = ? ORDER BY date DESC', [customer.name]);
+  res.json(rows);
+}));
+
+app.post('/api/customers', asyncHandler((req, res) => {
+  const { name, contactPerson, phone, email, address, note } = req.body;
+  if (!name) return res.status(400).json({ error: '客户名称必填' });
+  const existing = queryWithParams('SELECT id FROM customers WHERE name = ?', [name])[0];
+  if (existing) return res.status(400).json({ error: '客户已存在' });
+  run('INSERT INTO customers (name, contact_person, phone, email, address, note) VALUES (?, ?, ?, ?, ?, ?)', [name, contactPerson || null, phone || null, email || null, address || null, note || null]);
+  const newCustomer = queryWithParams('SELECT id FROM customers WHERE name = ?', [name])[0];
+  res.json({ success: true, id: newCustomer?.id });
+}));
+
+app.put('/api/customers/:id', asyncHandler((req, res) => {
+  const { name, contactPerson, phone, email, address, note } = req.body;
+  run('UPDATE customers SET name = ?, contact_person = ?, phone = ?, email = ?, address = ?, note = ?, updated_at = ? WHERE id = ?', [name, contactPerson || null, phone || null, email || null, address || null, note || null, new Date().toISOString(), parseInt(req.params.id, 10)]);
+  res.json({ success: true });
+}));
+
+app.delete('/api/customers/:id', asyncHandler((req, res) => {
+  run('DELETE FROM customers WHERE id = ?', [parseInt(req.params.id, 10)]);
+  res.json({ success: true });
+}));
+
+// 从订单同步客户（自动创建新客户）
+app.post('/api/customers/sync', asyncHandler((req, res) => {
+  const clients = query("SELECT DISTINCT client FROM orders WHERE client IS NOT NULL AND client != ''");
+  let created = 0;
+  clients.forEach(({ client }) => {
+    const existing = queryWithParams('SELECT id FROM customers WHERE name = ?', [client])[0];
+    if (!existing) { run('INSERT INTO customers (name) VALUES (?)', [client]); created++; }
+  });
+  res.json({ success: true, synced: clients.length, created });
 }));
 
 // ========== 异常日志 API ==========

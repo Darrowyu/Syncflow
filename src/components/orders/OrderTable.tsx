@@ -111,7 +111,7 @@ const OrderTable: React.FC<OrderTableProps> = memo(({ orders, inventory, lines, 
                       </td>
                       <td className="px-3 py-3">
                         <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded text-xs font-mono">{order.styleNo}</span>
-                        {order.lineId && <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">{order.lineId}{t('line_suffix')}</span>}
+                        {(order.lineIds || order.lineId) && <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">{order.lineIds || order.lineId}{t('line_suffix')}</span>}
                       </td>
                       <td className="px-3 py-3 text-right font-mono font-medium text-slate-800 dark:text-slate-100">{order.totalTons.toFixed(2)}</td>
                       <td className="px-3 py-3 text-center text-slate-700 dark:text-slate-300">{order.containers}</td>

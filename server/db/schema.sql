@@ -130,3 +130,19 @@ CREATE INDEX IF NOT EXISTS idx_inventory_audit_logs_style_no ON inventory_audit_
 CREATE INDEX IF NOT EXISTS idx_inventory_safety_stock ON inventory(safety_stock);
 CREATE INDEX IF NOT EXISTS idx_incidents_style_no ON incidents(style_no);
 CREATE INDEX IF NOT EXISTS idx_style_change_logs_line_id ON style_change_logs(line_id);
+
+-- 客户表
+CREATE TABLE IF NOT EXISTS customers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT UNIQUE NOT NULL,
+  contact_person TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  note TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
+CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client);

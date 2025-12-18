@@ -38,8 +38,9 @@ const OrderCalendar: React.FC<OrderCalendarProps> = memo(({ orders, onSelectOrde
 
     const ordersByDate = useMemo(() => {
         const map: Record<string, Order[]> = {};
-        orders.filter(o => o.expectedShipDate).forEach(order => {
-            const dateKey = order.expectedShipDate!;
+        orders.forEach(order => {
+            const dateKey = order.expectedShipDate || order.date; // 优先用expectedShipDate，否则用date
+            if (!dateKey) return;
             if (!map[dateKey]) map[dateKey] = [];
             map[dateKey].push(order);
         });

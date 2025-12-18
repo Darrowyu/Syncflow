@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Order, InventoryItem, ProductLine, LoadingTimeSlot, WorkshopCommStatus, TradeType, OrderStatus } from '../../types';
-import { AlertCircle, Bot, Loader2, MessageSquare, ChevronDown, ChevronUp, Upload, FileSpreadsheet, Edit2, Trash2, Package, Truck, Calendar, Download, Printer } from 'lucide-react';
+import { AlertCircle, Bot, Loader2, MessageSquare, ChevronDown, ChevronUp, Upload, FileSpreadsheet, Edit2, Trash2, Package, Truck, Calendar, Download, Printer, ArrowUp, ArrowDown, Users } from 'lucide-react';
 import { useIsMobile } from '../../hooks';
 import { parseOrderText, patchOrder, createOrder, deleteOrder } from '../../services';
 import { invalidateCache } from '../../services/api';
@@ -11,6 +11,7 @@ import { Modal } from '../common';
 import * as XLSX from 'xlsx';
 import OrderCalendar from './OrderCalendar';
 import PrintPackingList from '../common/PrintPackingList';
+import CustomerManagement from './CustomerManagement';
 
 interface OrderManagementProps {
   orders: Order[];
@@ -34,12 +35,14 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
   const [excelPreview, setExcelPreview] = useState<Partial<Order>[]>([]);
   const [importMode, setImportMode] = useState<'paste' | 'file'>('paste');
   const [isLoadingFile, setIsLoadingFile] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'ready' | 'shipped'>('all');
-  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'calendar' | 'customers'>('table');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
+  const [sortConfig, setSortConfig] = useState<{field: keyof Order, dir: 'asc'|'desc'}[]>([]); // 多列排序
   const { t } = useLanguage();
   const isMobile = useIsMobile();
 
@@ -47,7 +50,45 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
   const allOrders = useMemo(() => orders.filter(o => o.status !== OrderStatus.SHIPPED), [orders]);
   const readyOrders = useMemo(() => orders.filter(o => o.status === OrderStatus.READY_TO_SHIP), [orders]);
   const shippedOrders = useMemo(() => orders.filter(o => o.status === OrderStatus.SHIPPED), [orders]);
-  const displayOrders = activeTab === 'all' ? allOrders : activeTab === 'ready' ? readyOrders : shippedOrders;
+  const filteredOrders = activeTab === 'all' ? allOrders : activeTab === 'ready' ? readyOrders : shippedOrders;
+
+  // 多列排序
+  const displayOrders = useMemo(() => {
+    if (sortConfig.length === 0) return filteredOrders;
+    return [...filteredOrders].sort((a, b) => {
+      for (const { field, dir } of sortConfig) {
+        const av = a[field], bv = b[field];
+        const cmp = typeof av === 'number' ? av - (bv as number) : String(av ?? '').localeCompare(String(bv ?? ''));
+        if (cmp !== 0) return dir === 'asc' ? cmp : -cmp;
+      }
+      return 0;
+    });
+  }, [filteredOrders, sortConfig]);
+
+  // 排序切换：点击添加/切换，Shift+点击多列排序
+  const handleSort = useCallback((field: keyof Order, e: React.MouseEvent) => {
+    setSortConfig(prev => {
+      const idx = prev.findIndex(s => s.field === field);
+      if (e.shiftKey) { // Shift+点击：多列排序
+        if (idx >= 0) { // 已存在则切换方向或移除
+          const cur = prev[idx];
+          return cur.dir === 'asc' ? prev.map((s, i) => i === idx ? { ...s, dir: 'desc' } : s) : prev.filter((_, i) => i !== idx);
+        }
+        return [...prev, { field, dir: 'asc' }];
+      }
+      // 普通点击：单列排序
+      if (idx >= 0 && prev.length === 1) return prev[0].dir === 'asc' ? [{ field, dir: 'desc' }] : [];
+      return [{ field, dir: 'asc' }];
+    });
+  }, []);
+
+  // 获取排序图标
+  const getSortIcon = (field: keyof Order) => {
+    const idx = sortConfig.findIndex(s => s.field === field);
+    if (idx < 0) return null;
+    const { dir } = sortConfig[idx];
+    return <span className="inline-flex items-center ml-1">{dir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />}{sortConfig.length > 1 && <span className="text-[10px] ml-0.5">{idx + 1}</span>}</span>;
+  };
 
   // 更新订单状态（满足率不足100%时禁止切换到齐料待发和已出货）
   const handleUpdateStatus = async (id: string, status: OrderStatus, percent: number) => {
@@ -121,19 +162,29 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
     } catch (e) { toast.error((e as Error).message); }
   };
 
-  // Excel粘贴解析：日期 客户 款号 PI号 产线 提单号 总量 柜数 包/柜 港口 对接人 贸易类型 装货要求
+  // Excel粘贴解析：序号 日期 客户 款号 PI号 产线 提单号 总量 柜数 包/柜 港口 对接人 贸易类型 装货要求
   const parseExcelData = (text: string) => {
     const lines = text.trim().split('\n').filter(l => l.trim());
     const orders: Partial<Order>[] = [];
+    const parseDate = (d: string): string => { // 日期格式转换：12/17 -> 2025-12-17
+      if (!d) return new Date().toISOString().split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d; // 已是标准格式
+      const parts = d.split('/');
+      if (parts.length === 2) return `${new Date().getFullYear()}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+      if (parts.length === 3) return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+      return new Date().toISOString().split('T')[0];
+    };
     for (const line of lines) {
       const cols = line.split('\t');
-      if (cols.length < 4) continue;
-      const [date, client, styleNo, piNo, lineId, blNo, totalTons, containers, pkgPerCont, port, contact, tradeType, requirements] = cols;
+      if (cols.length < 5) continue;
+      const hasSeqNo = /^\d+$/.test(cols[0]?.trim()); // 检测第一列是否为序号
+      const offset = hasSeqNo ? 1 : 0;
+      const [date, client, styleNo, piNo, lineId, blNo, totalTons, containers, pkgPerCont, port, contact, tradeType, requirements] = cols.slice(offset);
       if (!client || !styleNo || !totalTons) continue;
       const tons = parseFloat(totalTons) || 0;
       orders.push({
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        date: date || new Date().toISOString().split('T')[0],
+        date: parseDate(date?.trim()),
         client: client.trim(),
         styleNo: styleNo.trim(),
         piNo: piNo?.trim() || '',
@@ -146,7 +197,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
         contactPerson: contact?.trim() || '',
         tradeType: tradeType?.includes('保税') ? TradeType.BONDED : TradeType.GENERAL,
         requirements: requirements?.trim() || '',
-        status: 'Pending' as any,
+        status: OrderStatus.PENDING,
         isLargeOrder: tons > 100,
         largeOrderAck: false,
       });
@@ -172,52 +223,89 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
       setExcelInput('');
       setExcelPreview([]);
       setShowExcelModal(false);
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error((e as Error).message || '导入失败'); }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processExcelFile = async (file: File) => {
     setIsLoadingFile(true);
+    setIsDragging(false);
+    const parseExcelDate = (d: unknown): string => { // Excel日期转换
+      if (!d) return new Date().toISOString().split('T')[0];
+      if (typeof d === 'number') { // Excel序列号日期
+        const date = new Date((d - 25569) * 86400 * 1000);
+        return date.toISOString().split('T')[0];
+      }
+      const s = String(d);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const parts = s.split('/');
+      if (parts.length === 2) return `${new Date().getFullYear()}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+      if (parts.length === 3) return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+      return new Date().toISOString().split('T')[0];
+    };
     try {
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: 'array' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
       const orders: Partial<Order>[] = [];
+      const last: Record<string, unknown> = {}; // 记录上一行各列的值，处理合并单元格
+      const getVal = (v: unknown, key: string): unknown => { // 获取值，空则用上一行
+        if (v !== undefined && v !== null && v !== '') { last[key] = v; return v; }
+        return last[key];
+      };
+      const toStr = (v: unknown): string => (v !== undefined && v !== null) ? String(v).trim() : '';
+      const toNum = (v: unknown, def = 0): number => { const n = parseFloat(String(v)); return isNaN(n) ? def : n; };
+      const toInt = (v: unknown, def = 0): number => { const n = parseInt(String(v), 10); return isNaN(n) ? def : n; };
       for (let i = 1; i < rows.length; i++) { // 跳过表头
-        const cols = rows[i];
-        if (!cols || cols.length < 4) continue;
-        const [date, client, styleNo, piNo, lineId, blNo, totalTons, containers, pkgPerCont, port, contact, tradeType, requirements] = cols;
-        if (!client || !styleNo) continue;
-        const tons = parseFloat(totalTons) || 0;
+        const c = rows[i] as unknown[];
+        if (!c || c.length < 4) continue;
+        // 列映射：[0]序号(空) [1]日期 [2]客户 [3]款号 [4]PI号 [5]产线 [6]提单号 [7]总量 [8]柜数 [9]包/柜 [10]港口 [11]对接人 [12]贸易类型 [13]装货要求
+        const styleNo = toStr(c[3]);
+        if (!styleNo) continue;
+        const tons = toNum(getVal(c[7], 'tons'));
+        const lineVal = toStr(c[5]);
+        const isMultiLine = lineVal && /[\/,]/.test(lineVal);
         orders.push({
           id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + i,
-          date: date ? String(date) : new Date().toISOString().split('T')[0],
-          client: String(client).trim(),
-          styleNo: String(styleNo).trim(),
-          piNo: piNo ? String(piNo).trim() : '',
-          lineId: lineId ? parseInt(String(lineId)) : undefined,
-          blNo: blNo ? String(blNo).trim() : '',
+          date: parseExcelDate(getVal(c[1], 'date')),
+          client: toStr(getVal(c[2], 'client')),
+          styleNo,
+          piNo: toStr(c[4]),
+          lineId: isMultiLine ? undefined : (lineVal ? toInt(lineVal) : undefined),
+          lineIds: isMultiLine ? lineVal : undefined,
+          blNo: toStr(c[6]),
           totalTons: tons,
-          containers: parseInt(String(containers)) || 1,
-          packagesPerContainer: parseInt(String(pkgPerCont)) || 30,
-          port: port ? String(port).trim() : '',
-          contactPerson: contact ? String(contact).trim() : '',
-          tradeType: tradeType && String(tradeType).includes('保税') ? TradeType.BONDED : TradeType.GENERAL,
-          requirements: requirements ? String(requirements).trim() : '',
-          status: 'Pending' as any,
+          containers: toInt(getVal(c[8], 'containers'), 1),
+          packagesPerContainer: toInt(getVal(c[9], 'pkg'), 30),
+          port: toStr(getVal(c[10], 'port')),
+          contactPerson: toStr(getVal(c[11], 'contact')),
+          tradeType: toStr(getVal(c[12], 'trade')).includes('保税') ? TradeType.BONDED : TradeType.GENERAL,
+          requirements: toStr(c[13]),
+          status: OrderStatus.PENDING,
           isLargeOrder: tons > 100,
           largeOrderAck: false,
         });
       }
       setExcelPreview(orders);
     } catch (err) {
-      alert(t('alert_excel_fail'));
+      toast.error(t('alert_excel_fail'));
     } finally {
       setIsLoadingFile(false);
-      e.target.value = '';
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processExcelFile(file);
+    e.target.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file && /\.(xlsx|xls)$/i.test(file.name)) processExcelFile(file);
+    else toast.error(t('alert_excel_fail'));
   };
 
   const handleOpenEdit = (order: Order) => {
@@ -264,6 +352,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
           <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex flex-shrink-0">
             <button onClick={() => setViewMode('table')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('view_table')}</button>
             <button onClick={() => setViewMode('calendar')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${viewMode === 'calendar' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}><Calendar size={14} className="mr-1" />{isMobile ? '' : t('view_calendar')}</button>
+            <button onClick={() => setViewMode('customers')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${viewMode === 'customers' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}><Users size={14} className="mr-1" />{isMobile ? '' : t('customer_management')}</button>
           </div>
           {viewMode === 'table' && (
             <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex flex-shrink-0">
@@ -281,6 +370,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
       </div>
 
       {viewMode === 'calendar' && <OrderCalendar orders={orders} onSelectOrder={(o) => { setEditingOrder({ ...o }); setShowEditModal(true); }} onCreateOrder={(date) => { setEditingOrder({ id: '', date: new Date().toISOString().split('T')[0], client: '', styleNo: '', piNo: '', totalTons: 0, containers: 1, packagesPerContainer: 30, port: '', contactPerson: '', tradeType: TradeType.GENERAL, requirements: '', status: OrderStatus.PENDING, isLargeOrder: false, largeOrderAck: false, expectedShipDate: date } as Order); setShowEditModal(true); }} />}
+
+      {viewMode === 'customers' && <CustomerManagement orders={orders} />}
 
       {printOrder && <PrintPackingList order={printOrder} inventory={inventory} onClose={() => setPrintOrder(null)} />}
 
@@ -300,8 +391,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
               <button onClick={handleExcelParse} disabled={!excelInput.trim()} className="w-full py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50">{t('parse_preview')}</button>
             </>
           ) : (
-            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition">
-              {isLoadingFile ? <Loader2 className="animate-spin text-green-600 dark:text-green-400" size={32} /> : <><FileSpreadsheet size={32} className="text-slate-400 mb-2" /><span className="text-sm text-slate-500 dark:text-slate-400">点击选择Excel文件 (.xlsx)</span></>}
+            <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition ${isDragging ? 'border-green-500 bg-green-50 dark:bg-green-900/30' : 'border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`} onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleDrop}>
+              {isLoadingFile ? <Loader2 className="animate-spin text-green-600 dark:text-green-400" size={32} /> : <><FileSpreadsheet size={32} className={isDragging ? 'text-green-500' : 'text-slate-400'} /><span className={`text-sm mt-2 ${isDragging ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>{isDragging ? t('drop_file_here') : t('drag_or_click')}</span></>}
               <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileUpload} />
             </label>
           )}
@@ -449,10 +540,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
             <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-slate-700">
               <tr>
                 <th className="px-3 py-3 text-left w-8">#</th>
-                <th className="px-3 py-3 text-left">{t('table_date')}</th>
-                <th className="px-3 py-3 text-left">{t('table_client')}</th>
-                <th className="px-3 py-3 text-left">{t('table_style')}</th>
-                <th className="px-3 py-3 text-right">{t('table_total')}</th>
+                <th className="px-3 py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('date', e)}>{t('table_date')}{getSortIcon('date')}</th>
+                <th className="px-3 py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('client', e)}>{t('table_client')}{getSortIcon('client')}</th>
+                <th className="px-3 py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('styleNo', e)}>{t('table_style')}{getSortIcon('styleNo')}</th>
+                <th className="px-3 py-3 text-right cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('totalTons', e)}>{t('table_total')}{getSortIcon('totalTons')}</th>
                 <th className="px-3 py-3 text-center">{t('table_containers')}</th>
                 <th className="px-3 py-3 text-left">{t('table_port')}</th>
                 <th className="px-3 py-3 text-left">{t('workshop_status')}</th>
@@ -476,7 +567,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                       </td>
                       <td className="px-3 py-3">
                         <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded text-xs font-mono">{order.styleNo}</span>
-                        {order.lineId && <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">{order.lineId}{t('lines_suffix')}</span>}
+                        {(order.lineIds || order.lineId) && <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">{order.lineIds || order.lineId}{t('lines_suffix')}</span>}
                       </td>
                       <td className="px-3 py-3 text-right font-mono font-medium text-slate-800 dark:text-slate-100">{order.totalTons.toFixed(2)}</td>
                       <td className="px-3 py-3 text-center text-slate-700 dark:text-slate-300">{order.containers}</td>

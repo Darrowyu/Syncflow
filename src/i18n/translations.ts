@@ -102,7 +102,7 @@ export const translations = {
     // Order Management
     view_table: "Table", view_calendar: "Calendar", tab_pending: "Pending", tab_ready: "Ready to Ship", tab_shipped: "Shipped",
     btn_export: "Export", btn_import: "Import Orders", btn_search: "Search", import_title: "Import Orders", paste_data: "Paste Data", upload_file: "Upload File",
-    paste_hint: "Paste data from Excel below", upload_hint: "Upload Excel file (.xlsx)",
+    paste_hint: "Paste data from Excel below", upload_hint: "Upload Excel file (.xlsx)", drag_or_click: "Drag file here or click to select", drop_file_here: "Drop file here",
     column_order: "Columns: Date, Client, Style, PI, Line, BL, Tons, Containers, Pkg/Cont, Port, Contact, Trade Type, Requirements",
     parse_preview: "Parse Preview", preview_count: "Preview", confirm_import: "Confirm Import", edit_order: "Edit Order",
     field_date: "Date", field_client: "Client", field_style: "Style", field_pi: "PI No.", field_tons: "Total (t)",
@@ -135,7 +135,17 @@ export const translations = {
     wh_total: "Total", wh_containers: "Containers", wh_port: "Port",
     wh_report_issue: "Report Issue", wh_confirm_load: "Confirm Load",
     wh_shipped_list: "Shipped Today", wh_no_shipped: "No shipped orders today",
-    inc_resolved: "Resolved", inc_reopen: "Reopen", inc_prev_page: "Prev", inc_next_page: "Next"
+    inc_resolved: "Resolved", inc_reopen: "Reopen", inc_prev_page: "Prev", inc_next_page: "Next",
+    sort_hint: "Click to sort, Shift+click for multi-column",
+    // Customer
+    customer_management: "Customer Management", customer_list: "Customer List", customer_detail: "Customer Detail",
+    customer_name: "Customer Name", customer_contact: "Contact Person", customer_phone: "Phone", customer_email: "Email",
+    customer_address: "Address", customer_note: "Note", customer_add: "Add Customer", customer_edit: "Edit Customer",
+    customer_delete: "Delete Customer", customer_sync: "Sync from Orders", customer_stats: "Statistics",
+    customer_order_count: "Order Count", customer_total_tons: "Total Tons", customer_total_containers: "Total Containers",
+    customer_first_order: "First Order", customer_last_order: "Last Order", customer_top_styles: "Top Styles",
+    customer_history: "Order History", customer_no_data: "No customer data", customer_sync_success: "Synced customers",
+    customer_created: "created", customer_confirm_delete: "Confirm delete this customer?", customer_search: "Search customer..."
   },
   zh: {
     nav_dashboard: "仪表盘", nav_orders: "订单管理", nav_production: "排产控制", nav_warehouse: "仓库作业", nav_help: "使用指南",
@@ -237,7 +247,7 @@ export const translations = {
     // Order Management
     view_table: "表格", view_calendar: "日历", tab_pending: "待处理", tab_ready: "待发货", tab_shipped: "已出货",
     btn_export: "导出", btn_import: "导入订单", btn_search: "查询", import_title: "导入订单", paste_data: "粘贴数据", upload_file: "上传文件",
-    paste_hint: "从Excel复制数据粘贴到下方", upload_hint: "上传Excel文件 (.xlsx)",
+    paste_hint: "从Excel复制数据粘贴到下方", upload_hint: "上传Excel文件 (.xlsx)", drag_or_click: "拖拽文件到此处或点击选择", drop_file_here: "松开鼠标放入文件",
     column_order: "列顺序：日期、客户、款号、PI号、产线、提单号、总量(t)、柜数、包/柜、港口、对接人、贸易类型、装货要求",
     parse_preview: "解析预览", preview_count: "预览", confirm_import: "确认导入", edit_order: "编辑订单",
     field_date: "日期", field_client: "客户", field_style: "款号", field_pi: "PI号", field_tons: "总量(t)",
@@ -270,7 +280,17 @@ export const translations = {
     wh_total: "总量", wh_containers: "柜数", wh_port: "港口",
     wh_report_issue: "异常", wh_confirm_load: "确认装车",
     wh_shipped_list: "今日已发", wh_no_shipped: "今日暂无已发订单",
-    inc_resolved: "已解决", inc_reopen: "重开", inc_prev_page: "上一页", inc_next_page: "下一页"
+    inc_resolved: "已解决", inc_reopen: "重开", inc_prev_page: "上一页", inc_next_page: "下一页",
+    sort_hint: "点击排序，Shift+点击多列排序",
+    // 客户管理
+    customer_management: "客户管理", customer_list: "客户列表", customer_detail: "客户详情",
+    customer_name: "客户名称", customer_contact: "联系人", customer_phone: "电话", customer_email: "邮箱",
+    customer_address: "地址", customer_note: "备注", customer_add: "添加客户", customer_edit: "编辑客户",
+    customer_delete: "删除客户", customer_sync: "从订单同步", customer_stats: "统计数据",
+    customer_order_count: "订单数", customer_total_tons: "总吨数", customer_total_containers: "总柜数",
+    customer_first_order: "首次下单", customer_last_order: "最近下单", customer_top_styles: "常购款号",
+    customer_history: "历史订单", customer_no_data: "暂无客户数据", customer_sync_success: "已同步客户",
+    customer_created: "新增", customer_confirm_delete: "确定删除此客户？", customer_search: "搜索客户..."
   }
 };
 

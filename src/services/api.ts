@@ -89,6 +89,17 @@ export const createStyle = (data: Omit<Style, 'id'>) => request<ApiSuccess>('/st
 export const updateStyle = (id: number, data: Partial<Style>) => request<ApiSuccess>(`/styles/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteStyle = (id: number) => request<ApiSuccess>(`/styles/${id}`, { method: 'DELETE' });
 
+// 客户
+import { Customer, CustomerStats } from '../types';
+export const fetchCustomers = () => cachedRequest('customers', () => request<Customer[]>('/customers'));
+export const fetchCustomer = (id: number) => request<Customer>(`/customers/${id}`);
+export const fetchCustomerStats = (id: number) => request<CustomerStats>(`/customers/${id}/stats`);
+export const fetchCustomerOrders = (id: number) => request<Order[]>(`/customers/${id}/orders`);
+export const createCustomer = (data: Partial<Customer>) => request<ApiIdResponse>('/customers', { method: 'POST', body: JSON.stringify(data) });
+export const updateCustomer = (id: number, data: Partial<Customer>) => request<ApiSuccess>(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteCustomer = (id: number) => request<ApiSuccess>(`/customers/${id}`, { method: 'DELETE' });
+export const syncCustomers = () => request<{ success: true; synced: number; created: number }>('/customers/sync', { method: 'POST' });
+
 // 异常日志
 export const fetchIncidents = () => cachedRequest('incidents', () => request<IncidentLog[]>('/incidents'));
 export const createIncident = (data: IncidentLog) => request<ApiIdResponse>('/incidents', { method: 'POST', body: JSON.stringify(data) });

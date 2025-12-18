@@ -112,8 +112,21 @@ export const parseOrderText = async (text: string): Promise<Partial<Order>[]> =>
     : await callGemini(config.apiKey, prompt, OrderSchema);
   const result = JSON.parse(response || '{}');
   return (result.orders || []).map((o: Record<string, unknown>) => ({
-    ...o, id: generateId(), tradeType: TradeType.GENERAL, status: OrderStatus.PENDING,
-    isLargeOrder: ((o.totalTons as number) || 0) > 100, largeOrderAck: false,
+    id: generateId(),
+    date: (o.date as string) || new Date().toISOString().split('T')[0],
+    client: (o.client as string) || '',
+    styleNo: (o.styleNo as string) || '',
+    piNo: (o.piNo as string) || '',
+    totalTons: (o.totalTons as number) || 0,
+    containers: (o.containers as number) || 1,
+    packagesPerContainer: (o.packagesPerContainer as number) || 30,
+    port: (o.port as string) || '',
+    contactPerson: (o.contactPerson as string) || '',
+    requirements: (o.requirements as string) || '',
+    tradeType: TradeType.GENERAL,
+    status: OrderStatus.PENDING,
+    isLargeOrder: ((o.totalTons as number) || 0) > 100,
+    largeOrderAck: false,
   }));
 };
 

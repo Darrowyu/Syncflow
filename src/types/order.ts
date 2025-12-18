@@ -32,6 +32,7 @@ export interface Order {
   styleNo: string;
   piNo: string;
   lineId?: number;
+  lineIds?: string; // 多产线：如 "1/2" 或 "1,2,3"
   blNo?: string;
   totalTons: number;
   containers: number;

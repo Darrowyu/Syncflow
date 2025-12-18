@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS orders (
   date TEXT NOT NULL,
   client TEXT NOT NULL,
   style_no TEXT NOT NULL,
+  package_spec TEXT,
   pi_no TEXT,
   line_id INTEGER,
   bl_no TEXT,
@@ -94,6 +95,7 @@ CREATE TABLE IF NOT EXISTS orders (
   workshop_comm_status TEXT DEFAULT 'NotStarted',
   workshop_note TEXT,
   prep_days_required INTEGER DEFAULT 0,
+  warehouse_allocation TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Order, InventoryItem, ProductLine, LoadingTimeSlot, WorkshopCommStatus, TradeType, OrderStatus } from '../../types';
+import { Order, InventoryItem, ProductLine, LoadingTimeSlot, WorkshopCommStatus, TradeType, OrderStatus, PackageSpec, WarehouseAllocation } from '../../types';
 import { AlertCircle, Bot, Loader2, MessageSquare, ChevronDown, ChevronUp, Upload, FileSpreadsheet, Edit2, Trash2, Package, Truck, Calendar, Download, Printer, ArrowUp, ArrowDown, Users } from 'lucide-react';
 import { useIsMobile } from '../../hooks';
 import { parseOrderText, patchOrder, createOrder, deleteOrder } from '../../services';
@@ -12,6 +12,51 @@ import ExcelJS from 'exceljs';
 import OrderCalendar from './OrderCalendar';
 import PrintPackingList from '../common/PrintPackingList';
 import CustomerManagement from './CustomerManagement';
+
+interface FulfillmentPopoverProps { order: Order; inventory: InventoryItem[]; t: (k: string) => string; onClose: () => void; onSave: (alloc: WarehouseAllocation) => void; }
+const FulfillmentPopover: React.FC<FulfillmentPopoverProps> = ({ order, inventory, t, onClose, onSave }) => {
+  const generalItems = inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === 'general');
+  const bondedItems = inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === 'bonded');
+  const generalStock = generalItems.reduce((sum, i) => sum + i.currentStock, 0);
+  const bondedStock = bondedItems.reduce((sum, i) => sum + i.currentStock, 0);
+  const initAlloc = order.warehouseAllocation || { general: order.tradeType === TradeType.GENERAL ? order.totalTons : 0, bonded: order.tradeType === TradeType.BONDED ? order.totalTons : 0 };
+  const [alloc, setAlloc] = useState<WarehouseAllocation>(initAlloc);
+  const totalAlloc = alloc.general + alloc.bonded;
+  const isValid = Math.abs(totalAlloc - order.totalTons) < 0.01; // 分配总量等于订单总量
+  const canFulfill = alloc.general <= generalStock && alloc.bonded <= bondedStock;
+  return (
+    <div className="absolute z-50 top-full left-0 mt-1 w-80 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 text-xs space-y-2" onClick={(e) => e.stopPropagation()}>
+      <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
+        <span className="font-medium text-slate-700 dark:text-slate-200">{order.styleNo} {order.packageSpec && `(${order.packageSpec})`}</span>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-600">×</button>
+      </div>
+      <div className="flex justify-between"><span className="text-slate-500">{t('order_demand')}:</span><span className="font-mono font-medium">{order.totalTons}t</span></div>
+      <div className="border-t border-slate-100 dark:border-slate-700 pt-2 space-y-2">
+        <div className="text-slate-500 font-medium">{t('wh_allocation')}:</div>
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500" />{t('wh_general')}</span>
+          <span className="text-slate-400 text-[10px]">{t('available_stock')}: {generalStock.toFixed(1)}t</span>
+          <input type="number" step="0.1" min="0" max={generalStock} value={alloc.general} onChange={(e) => setAlloc({ ...alloc, general: parseFloat(e.target.value) || 0 })} className={`w-20 px-1.5 py-0.5 border rounded text-right font-mono ${alloc.general > generalStock ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} />
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" />{t('wh_bonded')}</span>
+          <span className="text-slate-400 text-[10px]">{t('available_stock')}: {bondedStock.toFixed(1)}t</span>
+          <input type="number" step="0.1" min="0" max={bondedStock} value={alloc.bonded} onChange={(e) => setAlloc({ ...alloc, bonded: parseFloat(e.target.value) || 0 })} className={`w-20 px-1.5 py-0.5 border rounded text-right font-mono ${alloc.bonded > bondedStock ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} />
+        </div>
+        <div className={`flex justify-between pt-1 border-t border-dashed ${isValid ? 'text-green-600' : 'text-red-500'}`}>
+          <span>{t('total_alloc')}:</span><span className="font-mono font-bold">{totalAlloc.toFixed(2)}t {!isValid && <span className="text-red-500">({t('still_need')} {(order.totalTons - totalAlloc).toFixed(2)}t)</span>}</span>
+        </div>
+      </div>
+      <div className="border-t border-slate-100 dark:border-slate-700 pt-2 space-y-1">
+        <div className="text-slate-400">{t('stock_detail')}:</div>
+        {generalItems.length > 0 && <div className="pl-2">{generalItems.map((item, i) => <div key={i} className="flex justify-between text-slate-500"><span>{t('wh_general')} {item.packageSpec}</span><span className="font-mono">{item.currentStock.toFixed(1)}t</span></div>)}</div>}
+        {bondedItems.length > 0 && <div className="pl-2">{bondedItems.map((item, i) => <div key={i} className="flex justify-between text-slate-500"><span>{t('wh_bonded')} {item.packageSpec}</span><span className="font-mono">{item.currentStock.toFixed(1)}t</span></div>)}</div>}
+        {generalItems.length === 0 && bondedItems.length === 0 && <div className="text-slate-400 italic pl-2">{t('no_stock')}</div>}
+      </div>
+      <button onClick={() => onSave(alloc)} disabled={!isValid || !canFulfill} className="w-full py-1.5 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">{t('btn_save_alloc')}</button>
+    </div>
+  );
+};
 
 interface OrderManagementProps {
   orders: Order[];
@@ -43,6 +88,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
   const [sortConfig, setSortConfig] = useState<{field: keyof Order, dir: 'asc'|'desc'}[]>([]); // 多列排序
+  const [fulfillmentDetailId, setFulfillmentDetailId] = useState<string | null>(null); // 满足率详情展开
   const { t } = useLanguage();
   const isMobile = useIsMobile();
 
@@ -459,6 +505,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_date')}</label><input type="date" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.date} onChange={(e) => setEditingOrder({ ...editingOrder, date: e.target.value })} /></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_client')} *</label><input type="text" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.client} onChange={(e) => setEditingOrder({ ...editingOrder, client: e.target.value })} /></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_style')} *</label><input type="text" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.styleNo} onChange={(e) => setEditingOrder({ ...editingOrder, styleNo: e.target.value })} /></div>
+              <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_spec')} *</label><select className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.packageSpec || ''} onChange={(e) => setEditingOrder({ ...editingOrder, packageSpec: e.target.value as PackageSpec })}><option value="">-</option><option value={PackageSpec.KG820}>820kg</option><option value={PackageSpec.KG750}>750kg</option><option value={PackageSpec.KG25}>25kg</option></select></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_pi')}</label><input type="text" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.piNo} onChange={(e) => setEditingOrder({ ...editingOrder, piNo: e.target.value })} /></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_tons')} *</label><input type="number" step="0.01" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.totalTons} onChange={(e) => setEditingOrder({ ...editingOrder, totalTons: parseFloat(e.target.value) || 0 })} /></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_containers')}</label><input type="number" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.containers} onChange={(e) => setEditingOrder({ ...editingOrder, containers: parseInt(e.target.value) || 1 })} /></div>
@@ -473,7 +520,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_prep_days')}</label><input type="number" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.prepDaysRequired || 0} onChange={(e) => setEditingOrder({ ...editingOrder, prepDaysRequired: parseInt(e.target.value) || 0 })} /></div>
             </div>
             <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_requirements')}</label><textarea className="w-full border border-slate-300 rounded-lg p-2 text-sm h-16" value={editingOrder.requirements} onChange={(e) => setEditingOrder({ ...editingOrder, requirements: e.target.value })} /></div>
-            <button onClick={handleSaveEdit} disabled={!editingOrder.client || !editingOrder.styleNo} className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">{t('btn_save')}</button>
+            <button onClick={handleSaveEdit} disabled={!editingOrder.client || !editingOrder.styleNo || !editingOrder.packageSpec} className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">{t('btn_save')}</button>
           </div>
         )}
       </Modal>
@@ -545,6 +592,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                 <th className="px-3 py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('date', e)}>{t('table_date')}{getSortIcon('date')}</th>
                 <th className="px-3 py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('client', e)}>{t('table_client')}{getSortIcon('client')}</th>
                 <th className="px-3 py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('styleNo', e)}>{t('table_style')}{getSortIcon('styleNo')}</th>
+                <th className="px-3 py-3 text-center">{t('field_spec')}</th>
                 <th className="px-3 py-3 text-right cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('totalTons', e)}>{t('table_total')}{getSortIcon('totalTons')}</th>
                 <th className="px-3 py-3 text-center">{t('table_containers')}</th>
                 <th className="px-3 py-3 text-left">{t('table_port')}</th>
@@ -571,6 +619,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                         <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded text-xs font-mono">{order.styleNo}</span>
                         {(order.lineIds || order.lineId) && <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">{order.lineIds || order.lineId}{t('lines_suffix')}</span>}
                       </td>
+                      <td className="px-3 py-3 text-center">{order.packageSpec ? <span className="px-1.5 py-0.5 rounded text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">{order.packageSpec}</span> : <select onChange={(e) => { e.stopPropagation(); const spec = e.target.value as PackageSpec; if (!spec) return; patchOrder(order.id, { packageSpec: spec }).then(() => setOrders(prev => prev.map(o => o.id === order.id ? { ...o, packageSpec: spec } : o))).catch(() => toast.error(t('alert_save_fail'))); }} onClick={(e) => e.stopPropagation()} className="px-1.5 py-0.5 rounded text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 border-none cursor-pointer"><option value="">-</option><option value={PackageSpec.KG820}>820kg</option><option value={PackageSpec.KG750}>750kg</option><option value={PackageSpec.KG25}>25kg</option></select>}</td>
                       <td className="px-3 py-3 text-right font-mono font-medium text-slate-800 dark:text-slate-100">{order.totalTons.toFixed(2)}</td>
                       <td className="px-3 py-3 text-center text-slate-700 dark:text-slate-300">{order.containers}</td>
                       <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{order.port}</td>
@@ -582,11 +631,12 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                           <option value={OrderStatus.SHIPPED} disabled={percent < 100}>{t('status_shipped')}</option>
                         </select>
                       </td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center space-x-2">
+                      <td className="px-3 py-3 relative">
+                        <div className="flex items-center space-x-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); setFulfillmentDetailId(fulfillmentDetailId === order.id ? null : order.id); }}>
                           <div className="w-16 bg-slate-200 dark:bg-slate-600 rounded-full h-2"><div className={`h-2 rounded-full ${isShortage ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(percent, 100)}%` }} /></div>
                           <span className={`text-xs ${isShortage ? 'text-red-500 font-bold' : 'text-green-600 dark:text-green-400'}`}>{percent.toFixed(0)}%</span>
                         </div>
+                        {fulfillmentDetailId === order.id && <FulfillmentPopover order={order} inventory={inventory} t={t} onClose={() => setFulfillmentDetailId(null)} onSave={(alloc) => { patchOrder(order.id, { warehouseAllocation: alloc }).then(() => { setOrders(prev => prev.map(o => o.id === order.id ? { ...o, warehouseAllocation: alloc } : o)); toast.success(t('toast_order_saved')); }).catch(() => toast.error(t('alert_save_fail'))); }} />}
                       </td>
                       <td className="px-3 py-3 text-center">
                         <div className="flex items-center justify-center space-x-1">
@@ -602,7 +652,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                     </tr>
                     {isExpanded && (
                       <tr className="bg-slate-50 dark:bg-slate-900">
-                        <td colSpan={10} className="px-6 py-4">
+                        <td colSpan={11} className="px-6 py-4">
                           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm">
                             <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_po')}</span><span className="font-mono text-slate-700 dark:text-slate-300">{order.piNo}</span></div>
                             <div><span className="text-slate-400 dark:text-slate-500 text-xs block">{t('table_bl')}</span><span className="font-mono text-slate-700 dark:text-slate-300">{order.blNo || '-'}</span></div>

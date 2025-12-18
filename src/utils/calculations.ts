@@ -35,11 +35,21 @@ export const calculateStyleProduction = (styleNo: string, lines: ProductLine[]):
   return total;
 };
 
-export const calculateFulfillment = (order: Order, inventory: InventoryItem[], _lines: ProductLine[]): FulfillmentResult => { // 计算订单满足率（基于真实库存）
-  const stock = inventory.find(i => i.styleNo === order.styleNo)?.currentStock || 0;
-  const available = stock;
-  const percent = order.totalTons > 0 ? Math.min(100, (available / order.totalTons) * 100) : 100;
-  return { available, percent, isShortage: available < order.totalTons };
+export const calculateFulfillment = (order: Order, inventory: InventoryItem[], _lines: ProductLine[]): FulfillmentResult => { // 计算订单满足率（支持仓库分配）
+  const getStock = (whType: 'general' | 'bonded'): number => { // 获取指定仓库的库存
+    if (order.packageSpec) return inventory.find(i => i.styleNo === order.styleNo && i.warehouseType === whType && i.packageSpec === order.packageSpec)?.currentStock || 0;
+    return inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === whType).reduce((sum, i) => sum + i.currentStock, 0);
+  };
+  let stock = 0;
+  if (order.warehouseAllocation) { // 有仓库分配则按分配计算
+    const { general, bonded } = order.warehouseAllocation;
+    const generalStock = getStock('general'), bondedStock = getStock('bonded');
+    stock = Math.min(general, generalStock) + Math.min(bonded, bondedStock); // 实际可满足量
+  } else { // 无分配则按贸易类型默认仓库
+    stock = getStock(order.tradeType === 'Bonded' ? 'bonded' : 'general');
+  }
+  const percent = order.totalTons > 0 ? Math.min(100, (stock / order.totalTons) * 100) : 100;
+  return { available: stock, percent, isShortage: stock < order.totalTons };
 };
 
 export const calculateChartData = (orders: Order[], inventory: InventoryItem[], lines: ProductLine[]): ChartDataItem[] => { // 生成图表数据（含产能）

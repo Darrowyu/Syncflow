@@ -98,10 +98,14 @@ export async function initDatabase() {
     db.run("CREATE INDEX IF NOT EXISTS idx_inventory_transactions_order_id ON inventory_transactions(order_id)");
     db.run("CREATE INDEX IF NOT EXISTS idx_inventory_audit_logs_style_no ON inventory_audit_logs(style_no)");
     db.run("CREATE INDEX IF NOT EXISTS idx_inventory_safety_stock ON inventory(safety_stock)");
+    // 迁移：订单表添加package_spec字段
+    try { db.run("ALTER TABLE orders ADD COLUMN package_spec TEXT"); } catch (e) { /* 列已存在 */ }
     // 迁移：创建客户表
     db.run("CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, contact_person TEXT, phone TEXT, email TEXT, address TEXT, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)");
     db.run("CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)");
     db.run("CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client)");
+    // 迁移：订单表添加仓库分配字段
+    try { db.run("ALTER TABLE orders ADD COLUMN warehouse_allocation TEXT"); } catch (e) { /* 列已存在 */ }
     // 迁移：从订单中提取客户自动创建
     try {
       const clientsResult = db.exec("SELECT DISTINCT client FROM orders WHERE client IS NOT NULL AND client != ''");

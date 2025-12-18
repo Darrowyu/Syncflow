@@ -56,11 +56,21 @@ export function useData() {
   const confirmLoad = useCallback(async (id: string, autoDeductStock = true) => {
     try {
       const order = orders.find(o => o.id === id);
-      if (order && autoDeductStock) { // 自动扣减库存
-        const invItem = inventory.find(i => i.styleNo === order.styleNo);
-        if (invItem && invItem.currentStock >= order.totalTons) {
-          await inventoryOut({ styleNo: order.styleNo, warehouseType: invItem.warehouseType, packageSpec: invItem.packageSpec, quantity: order.totalTons, grade: 'A', source: '订单发货', note: `订单 ${order.piNo} 发货`, orderId: id });
-          setInventory(prev => prev.map(i => i.styleNo === order.styleNo && i.warehouseType === invItem.warehouseType && i.packageSpec === invItem.packageSpec ? { ...i, currentStock: i.currentStock - order.totalTons, gradeA: Math.max(0, i.gradeA - order.totalTons) } : i));
+      if (order && autoDeductStock) { // 自动扣减库存（支持仓库分配）
+        const deductFromWh = async (whType: 'general' | 'bonded', qty: number) => {
+          if (qty <= 0) return;
+          const invItem = inventory.find(i => i.styleNo === order.styleNo && i.warehouseType === whType && (!order.packageSpec || i.packageSpec === order.packageSpec));
+          if (invItem && invItem.currentStock >= qty) {
+            await inventoryOut({ styleNo: order.styleNo, warehouseType: whType, packageSpec: invItem.packageSpec, quantity: qty, grade: 'A', source: '订单发货', note: `订单 ${order.piNo} 发货`, orderId: id });
+            setInventory(prev => prev.map(i => i.styleNo === order.styleNo && i.warehouseType === whType && i.packageSpec === invItem.packageSpec ? { ...i, currentStock: i.currentStock - qty, gradeA: Math.max(0, i.gradeA - qty) } : i));
+          }
+        };
+        if (order.warehouseAllocation) { // 按仓库分配扣减
+          await deductFromWh('general', order.warehouseAllocation.general);
+          await deductFromWh('bonded', order.warehouseAllocation.bonded);
+        } else { // 无分配则按贸易类型默认仓库
+          const defaultWh = order.tradeType === 'Bonded' ? 'bonded' : 'general';
+          await deductFromWh(defaultWh, order.totalTons);
         }
       }
       await patchOrder(id, { status: OrderStatus.SHIPPED });

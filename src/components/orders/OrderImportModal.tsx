@@ -3,7 +3,7 @@ import { Order, TradeType } from '../../types';
 import { Loader2, FileSpreadsheet, Upload } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 import { Modal } from '../common';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 interface OrderImportModalProps {
     isOpen: boolean;
@@ -60,16 +60,19 @@ const OrderImportModal: React.FC<OrderImportModalProps> = ({ isOpen, onClose, on
         setIsLoadingFile(true);
         try {
             const buffer = await file.arrayBuffer();
-            const workbook = XLSX.read(buffer, { type: 'array' });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(buffer);
+            const sheet = workbook.worksheets[0];
+            const rows: unknown[][] = [];
+            sheet.eachRow((row) => rows.push(row.values as unknown[]));
             const orders: Partial<Order>[] = [];
-            for (let i = 1; i < rows.length; i++) {
-                const cols = rows[i];
-                if (!cols || cols.length < 4) continue;
-                const [date, client, styleNo, piNo, lineId, blNo, totalTons, containers, pkgPerCont, port, contact, tradeType, requirements] = cols;
+            for (let i = 2; i < rows.length; i++) { // exceljs索引从1开始
+                const cols = rows[i] as unknown[];
+                if (!cols || cols.length < 5) continue;
+                // exceljs的row.values索引从1开始：[1]序号 [2]日期 [3]客户 [4]款号...
+                const [, , date, client, styleNo, piNo, lineId, blNo, totalTons, containers, pkgPerCont, port, contact, tradeType, requirements] = cols;
                 if (!client || !styleNo) continue;
-                const tons = parseFloat(totalTons) || 0;
+                const tons = parseFloat(String(totalTons)) || 0;
                 orders.push({
                     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + i,
                     date: date ? String(date) : new Date().toISOString().split('T')[0],

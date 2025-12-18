@@ -8,7 +8,7 @@ import { toast } from '../common/Toast';
 import { useLanguage } from '../../i18n';
 import { calculateFulfillment, exportOrdersToExcel } from '../../utils';
 import { Modal } from '../common';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import OrderCalendar from './OrderCalendar';
 import PrintPackingList from '../common/PrintPackingList';
 import CustomerManagement from './CustomerManagement';
@@ -244,9 +244,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
     };
     try {
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
+      const sheet = workbook.worksheets[0];
+      const rows: unknown[][] = [];
+      sheet.eachRow((row) => rows.push(row.values as unknown[]));
       const orders: Partial<Order>[] = [];
       const last: Record<string, unknown> = {}; // 记录上一行各列的值，处理合并单元格
       const getVal = (v: unknown, key: string): unknown => { // 获取值，空则用上一行
@@ -256,31 +258,31 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
       const toStr = (v: unknown): string => (v !== undefined && v !== null) ? String(v).trim() : '';
       const toNum = (v: unknown, def = 0): number => { const n = parseFloat(String(v)); return isNaN(n) ? def : n; };
       const toInt = (v: unknown, def = 0): number => { const n = parseInt(String(v), 10); return isNaN(n) ? def : n; };
-      for (let i = 1; i < rows.length; i++) { // 跳过表头
+      for (let i = 2; i < rows.length; i++) { // 跳过表头(exceljs索引从1开始，第1行是表头)
         const c = rows[i] as unknown[];
-        if (!c || c.length < 4) continue;
-        // 列映射：[0]序号(空) [1]日期 [2]客户 [3]款号 [4]PI号 [5]产线 [6]提单号 [7]总量 [8]柜数 [9]包/柜 [10]港口 [11]对接人 [12]贸易类型 [13]装货要求
-        const styleNo = toStr(c[3]);
+        if (!c || c.length < 5) continue;
+        // exceljs的row.values索引从1开始：[1]序号 [2]日期 [3]客户 [4]款号 [5]PI号 [6]产线 [7]提单号 [8]总量 [9]柜数 [10]包/柜 [11]港口 [12]对接人 [13]贸易类型 [14]装货要求
+        const styleNo = toStr(c[4]);
         if (!styleNo) continue;
-        const tons = toNum(getVal(c[7], 'tons'));
-        const lineVal = toStr(c[5]);
+        const tons = toNum(getVal(c[8], 'tons'));
+        const lineVal = toStr(c[6]);
         const isMultiLine = lineVal && /[\/,]/.test(lineVal);
         orders.push({
           id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + i,
-          date: parseExcelDate(getVal(c[1], 'date')),
-          client: toStr(getVal(c[2], 'client')),
+          date: parseExcelDate(getVal(c[2], 'date')),
+          client: toStr(getVal(c[3], 'client')),
           styleNo,
-          piNo: toStr(c[4]),
+          piNo: toStr(c[5]),
           lineId: isMultiLine ? undefined : (lineVal ? toInt(lineVal) : undefined),
           lineIds: isMultiLine ? lineVal : undefined,
-          blNo: toStr(c[6]),
+          blNo: toStr(c[7]),
           totalTons: tons,
-          containers: toInt(getVal(c[8], 'containers'), 1),
-          packagesPerContainer: toInt(getVal(c[9], 'pkg'), 30),
-          port: toStr(getVal(c[10], 'port')),
-          contactPerson: toStr(getVal(c[11], 'contact')),
-          tradeType: toStr(getVal(c[12], 'trade')).includes('保税') ? TradeType.BONDED : TradeType.GENERAL,
-          requirements: toStr(c[13]),
+          containers: toInt(getVal(c[9], 'containers'), 1),
+          packagesPerContainer: toInt(getVal(c[10], 'pkg'), 30),
+          port: toStr(getVal(c[11], 'port')),
+          contactPerson: toStr(getVal(c[12], 'contact')),
+          tradeType: toStr(getVal(c[13], 'trade')).includes('保税') ? TradeType.BONDED : TradeType.GENERAL,
+          requirements: toStr(c[14]),
           status: OrderStatus.PENDING,
           isLargeOrder: tons > 100,
           largeOrderAck: false,

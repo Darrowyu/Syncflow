@@ -35,21 +35,69 @@ export const calculateStyleProduction = (styleNo: string, lines: ProductLine[]):
   return total;
 };
 
-export const calculateFulfillment = (order: Order, inventory: InventoryItem[], _lines: ProductLine[]): FulfillmentResult => { // 计算订单满足率（支持仓库分配）
-  const getStock = (whType: 'general' | 'bonded'): number => { // 获取指定仓库的库存
-    if (order.packageSpec) return inventory.find(i => i.styleNo === order.styleNo && i.warehouseType === whType && i.packageSpec === order.packageSpec)?.currentStock || 0;
-    return inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === whType).reduce((sum, i) => sum + i.currentStock, 0);
+export interface FulfillmentOptions {
+  includeProduction?: boolean; // 是否计入今日产线产能
+}
+
+export const calculateFulfillment = (
+  order: Order,
+  inventory: InventoryItem[],
+  lines: ProductLine[],
+  allOrders?: Order[], // 所有订单（用于计算其他订单占用）
+  options?: FulfillmentOptions
+): FulfillmentResult => {
+  const { includeProduction = false } = options || {};
+
+  // 获取指定仓库的可用库存（扣除锁定量）
+  const getAvailableStock = (whType: 'general' | 'bonded'): number => {
+    const matchItems = order.packageSpec
+      ? inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === whType && i.packageSpec === order.packageSpec)
+      : inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === whType);
+    return matchItems.reduce((sum, i) => sum + Math.max(0, i.currentStock - (i.lockedForToday || 0)), 0);
   };
-  let stock = 0;
-  if (order.warehouseAllocation) { // 有仓库分配则按分配计算
-    const { general, bonded } = order.warehouseAllocation;
-    const generalStock = getStock('general'), bondedStock = getStock('bonded');
-    stock = Math.min(general, generalStock) + Math.min(bonded, bondedStock); // 实际可满足量
-  } else { // 无分配则按贸易类型默认仓库
-    stock = getStock(order.tradeType === 'Bonded' ? 'bonded' : 'general');
+
+  // 计算其他未发货订单对同款号库存的占用量
+  const getOtherOrdersOccupied = (whType: 'general' | 'bonded'): number => {
+    if (!allOrders) return 0;
+    return allOrders
+      .filter(o => o.id !== order.id && o.styleNo === order.styleNo && o.status !== 'Shipped') // 排除当前订单和已发货订单
+      .filter(o => {
+        if (o.warehouseAllocation) return true; // 有分配的订单两个仓库都可能占用
+        return (o.tradeType === 'Bonded' ? 'bonded' : 'general') === whType; // 按贸易类型判断默认仓库
+      })
+      .reduce((sum, o) => {
+        if (o.warehouseAllocation) {
+          return sum + (whType === 'general' ? o.warehouseAllocation.general : o.warehouseAllocation.bonded);
+        }
+        return sum + o.totalTons; // 无分配则占用全部需求量
+      }, 0);
+  };
+
+  // 计算今日产线产能（可选）
+  const getTodayProduction = (): number => {
+    if (!includeProduction) return 0;
+    return calculateStyleProduction(order.styleNo, lines);
+  };
+
+  let availableStock = 0;
+
+  if (order.warehouseAllocation) {
+    // 有仓库分配：分别计算两个仓库的可用量
+    const { general: allocGeneral, bonded: allocBonded } = order.warehouseAllocation;
+    const generalStock = Math.max(0, getAvailableStock('general') - getOtherOrdersOccupied('general'));
+    const bondedStock = Math.max(0, getAvailableStock('bonded') - getOtherOrdersOccupied('bonded'));
+    availableStock = Math.min(allocGeneral, generalStock) + Math.min(allocBonded, bondedStock);
+  } else {
+    // 无分配：按贸易类型取对应仓库
+    const whType = order.tradeType === 'Bonded' ? 'bonded' : 'general';
+    availableStock = Math.max(0, getAvailableStock(whType) - getOtherOrdersOccupied(whType));
   }
-  const percent = order.totalTons > 0 ? Math.min(100, (stock / order.totalTons) * 100) : 100;
-  return { available: stock, percent, isShortage: stock < order.totalTons };
+
+  // 加上今日产能
+  const totalAvailable = availableStock + getTodayProduction();
+
+  const percent = order.totalTons > 0 ? Math.min(100, (totalAvailable / order.totalTons) * 100) : 100;
+  return { available: totalAvailable, percent, isShortage: totalAvailable < order.totalTons };
 };
 
 export const calculateChartData = (orders: Order[], inventory: InventoryItem[], lines: ProductLine[]): ChartDataItem[] => { // 生成图表数据（含产能）

@@ -146,7 +146,12 @@ export const translations = {
     customer_order_count: "Order Count", customer_total_tons: "Total Tons", customer_total_containers: "Total Containers",
     customer_first_order: "First Order", customer_last_order: "Last Order", customer_top_styles: "Top Styles",
     customer_history: "Order History", customer_no_data: "No customer data", customer_sync_success: "Synced customers",
-    customer_created: "created", customer_confirm_delete: "Confirm delete this customer?", customer_search: "Search customer..."
+    customer_created: "created", customer_confirm_delete: "Confirm delete this customer?", customer_search: "Search customer...",
+    // Advanced Filter
+    advanced_filter: "Advanced Filter", filter_date_from: "From", filter_date_to: "To", filter_client: "Client",
+    filter_style: "Style", filter_port: "Port", filter_status: "Status", filter_trade_type: "Trade Type",
+    filter_contact: "Contact", clear_filters: "Clear All", filter_results: "results", filter_all: "All",
+    filter_panel_title: "Filter Conditions"
   },
   zh: {
     nav_dashboard: "仪表盘", nav_orders: "订单管理", nav_production: "排产控制", nav_warehouse: "仓库作业", nav_help: "使用指南",
@@ -292,7 +297,12 @@ export const translations = {
     customer_order_count: "订单数", customer_total_tons: "总吨数", customer_total_containers: "总柜数",
     customer_first_order: "首次下单", customer_last_order: "最近下单", customer_top_styles: "常购款号",
     customer_history: "历史订单", customer_no_data: "暂无客户数据", customer_sync_success: "已同步客户",
-    customer_created: "新增", customer_confirm_delete: "确定删除此客户？", customer_search: "搜索客户..."
+    customer_created: "新增", customer_confirm_delete: "确定删除此客户？", customer_search: "搜索客户...",
+    // 高级筛选
+    advanced_filter: "高级筛选", filter_date_from: "开始日期", filter_date_to: "结束日期", filter_client: "客户",
+    filter_style: "款号", filter_port: "港口", filter_status: "状态", filter_trade_type: "贸易类型",
+    filter_contact: "对接人", clear_filters: "清除筛选", filter_results: "条结果", filter_all: "全部",
+    filter_panel_title: "筛选条件"
   }
 };
 

@@ -21,9 +21,9 @@ export const useOrders = (initialOrders: Order[]) => {
   const criticalAlerts = useMemo(() => getCriticalAlerts(orders), [orders]); // 大货预警
   const confirmedOrders = useMemo(() => orders.filter(o => o.status === OrderStatus.CONFIRMED), [orders]); // 待装车订单
 
-  const getFulfillment = useCallback((order: Order, inventory: InventoryItem[], lines: ProductLine[]): FulfillmentResult => { // 获取订单满足率
-    return calculateFulfillment(order, inventory, lines);
-  }, []);
+  const getFulfillment = useCallback((order: Order, inventory: InventoryItem[], lines: ProductLine[], allOrders?: Order[]): FulfillmentResult => { // 获取订单满足率
+    return calculateFulfillment(order, inventory, lines, allOrders || orders);
+  }, [orders]);
 
   return { orders, setOrders, addOrders, acknowledgeOrder, confirmLoad, pendingOrders, criticalAlerts, confirmedOrders, getFulfillment };
 };

@@ -37,7 +37,7 @@ export interface Order {
   date: string;
   client: string;
   styleNo: string;
-  packageSpec: PackageSpec; // 包装规格（必填）
+  packageSpec?: PackageSpec; // 包装规格（可选，后续可补充）
   piNo: string;
   lineId?: number;
   lineIds?: string; // 多产线：如 "1/2" 或 "1,2,3"

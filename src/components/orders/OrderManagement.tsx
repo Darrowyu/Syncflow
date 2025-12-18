@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Order, InventoryItem, ProductLine, LoadingTimeSlot, WorkshopCommStatus, TradeType, OrderStatus, PackageSpec, WarehouseAllocation } from '../../types';
-import { AlertCircle, Bot, Loader2, MessageSquare, ChevronDown, ChevronUp, Upload, FileSpreadsheet, Edit2, Trash2, Package, Truck, Calendar, Download, Printer, ArrowUp, ArrowDown, Users } from 'lucide-react';
+import { AlertCircle, Bot, Loader2, MessageSquare, ChevronDown, ChevronUp, Upload, FileSpreadsheet, Edit2, Trash2, Package, Truck, Calendar, Download, Printer, ArrowUp, ArrowDown, Users, Filter, X, Search } from 'lucide-react';
 import { useIsMobile } from '../../hooks';
 import { parseOrderText, patchOrder, createOrder, deleteOrder } from '../../services';
 import { invalidateCache } from '../../services/api';
@@ -87,8 +87,28 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
   const [viewMode, setViewMode] = useState<'table' | 'calendar' | 'customers'>('table');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
-  const [sortConfig, setSortConfig] = useState<{field: keyof Order, dir: 'asc'|'desc'}[]>([]); // 多列排序
+  const [sortConfig, setSortConfig] = useState<{ field: keyof Order, dir: 'asc' | 'desc' }[]>([]); // 多列排序
   const [fulfillmentDetailId, setFulfillmentDetailId] = useState<string | null>(null); // 满足率详情展开
+  const [showFilters, setShowFilters] = useState(false); // 高级筛选面板
+  const [filters, setFilters] = useState<{
+    dateFrom: string;
+    dateTo: string;
+    client: string;
+    styleNo: string;
+    port: string;
+    status: string;
+    tradeType: string;
+    contactPerson: string;
+  }>({
+    dateFrom: '',
+    dateTo: '',
+    client: '',
+    styleNo: '',
+    port: '',
+    status: '',
+    tradeType: '',
+    contactPerson: '',
+  });
   const { t } = useLanguage();
   const isMobile = useIsMobile();
 
@@ -98,18 +118,46 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
   const shippedOrders = useMemo(() => orders.filter(o => o.status === OrderStatus.SHIPPED), [orders]);
   const filteredOrders = activeTab === 'all' ? allOrders : activeTab === 'ready' ? readyOrders : shippedOrders;
 
-  // 多列排序
+  // 高级筛选 + 多列排序
   const displayOrders = useMemo(() => {
-    if (sortConfig.length === 0) return filteredOrders;
-    return [...filteredOrders].sort((a, b) => {
-      for (const { field, dir } of sortConfig) {
-        const av = a[field], bv = b[field];
-        const cmp = typeof av === 'number' ? av - (bv as number) : String(av ?? '').localeCompare(String(bv ?? ''));
-        if (cmp !== 0) return dir === 'asc' ? cmp : -cmp;
-      }
-      return 0;
-    });
-  }, [filteredOrders, sortConfig]);
+    let result = filteredOrders;
+    // 应用高级筛选
+    if (filters.dateFrom) result = result.filter(o => o.date >= filters.dateFrom);
+    if (filters.dateTo) result = result.filter(o => o.date <= filters.dateTo);
+    if (filters.client) result = result.filter(o => o.client.toLowerCase().includes(filters.client.toLowerCase()));
+    if (filters.styleNo) result = result.filter(o => o.styleNo.toLowerCase().includes(filters.styleNo.toLowerCase()));
+    if (filters.port) result = result.filter(o => o.port.toLowerCase().includes(filters.port.toLowerCase()));
+    if (filters.status) result = result.filter(o => o.status === filters.status);
+    if (filters.tradeType) result = result.filter(o => o.tradeType === filters.tradeType);
+    if (filters.contactPerson) result = result.filter(o => o.contactPerson.toLowerCase().includes(filters.contactPerson.toLowerCase()));
+    // 应用排序
+    if (sortConfig.length > 0) {
+      result = [...result].sort((a, b) => {
+        for (const { field, dir } of sortConfig) {
+          const av = a[field], bv = b[field];
+          const cmp = typeof av === 'number' ? av - (bv as number) : String(av ?? '').localeCompare(String(bv ?? ''));
+          if (cmp !== 0) return dir === 'asc' ? cmp : -cmp;
+        }
+        return 0;
+      });
+    }
+    return result;
+  }, [filteredOrders, sortConfig, filters]);
+
+  // 判断是否有筛选条件激活
+  const hasActiveFilters = useMemo(() => {
+    return Object.values(filters).some(v => v !== '');
+  }, [filters]);
+
+  // 清除所有筛选
+  const clearFilters = useCallback(() => {
+    setFilters({ dateFrom: '', dateTo: '', client: '', styleNo: '', port: '', status: '', tradeType: '', contactPerson: '' });
+  }, []);
+
+  // 获取唯一值列表（用于下拉选项）
+  const uniqueClients = useMemo(() => [...new Set(orders.map(o => o.client))].sort(), [orders]);
+  const uniquePorts = useMemo(() => [...new Set(orders.map(o => o.port).filter(Boolean))].sort(), [orders]);
+  const uniqueContacts = useMemo(() => [...new Set(orders.map(o => o.contactPerson).filter(Boolean))].sort(), [orders]);
 
   // 排序切换：点击添加/切换，Shift+点击多列排序
   const handleSort = useCallback((field: keyof Order, e: React.MouseEvent) => {
@@ -411,11 +459,103 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
           )}
         </div>
         <div className="flex gap-2 flex-wrap">
-          {!isMobile && <button onClick={() => exportOrdersToExcel(displayOrders)} className="flex items-center px-3 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition text-sm" title={t('btn_export')}><Download size={16} className="mr-1" />{t('btn_export')}</button>}
+          {viewMode === 'table' && (
+            <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center px-3 py-2 border rounded-lg transition text-sm ${hasActiveFilters ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <Filter size={16} className="mr-1" />
+              {t('advanced_filter')}
+              {hasActiveFilters && <span className="ml-1.5 w-2 h-2 bg-blue-500 rounded-full"></span>}
+            </button>
+          )}
+          {!isMobile && <button onClick={() => exportOrdersToExcel(displayOrders)} className="flex items-center px-3 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition text-sm" title={t('btn_export')}><Download size={16} className="mr-1" />{t('btn_export')}{hasActiveFilters && <span className="ml-1 text-xs text-blue-500">({displayOrders.length})</span>}</button>}
           <button onClick={() => setShowExcelModal(true)} className="flex items-center px-3 md:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"><Upload size={16} className="mr-1 md:mr-2" />{isMobile ? '' : t('btn_import')}</button>
           <button onClick={() => setShowParseModal(true)} className="flex items-center px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"><Bot size={16} className="mr-1 md:mr-2" />{isMobile ? 'AI' : t('btn_import_ai')}</button>
         </div>
       </div>
+
+      {/* 高级筛选面板 */}
+      {viewMode === 'table' && showFilters && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <Filter size={16} className="text-blue-500" />
+              <span className="font-medium text-slate-700 dark:text-slate-200">{t('filter_panel_title')}</span>
+              {hasActiveFilters && (
+                <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                  {displayOrders.length} {t('filter_results')}
+                </span>
+              )}
+            </div>
+            {hasActiveFilters && (
+              <button onClick={clearFilters} className="flex items-center text-xs text-red-500 hover:text-red-600 transition">
+                <X size={14} className="mr-1" />{t('clear_filters')}
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+            {/* 日期范围 */}
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('filter_date_from')}</label>
+              <input type="date" value={filters.dateFrom} onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })} className="w-full px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('filter_date_to')}</label>
+              <input type="date" value={filters.dateTo} onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })} className="w-full px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            {/* 客户 */}
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('filter_client')}</label>
+              <select value={filters.client} onChange={(e) => setFilters({ ...filters, client: e.target.value })} className="w-full px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="">{t('filter_all')}</option>
+                {uniqueClients.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            {/* 款号 */}
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('filter_style')}</label>
+              <div className="relative">
+                <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="text" value={filters.styleNo} onChange={(e) => setFilters({ ...filters, styleNo: e.target.value })} placeholder="..." className="w-full pl-7 pr-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" />
+              </div>
+            </div>
+            {/* 港口 */}
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('filter_port')}</label>
+              <select value={filters.port} onChange={(e) => setFilters({ ...filters, port: e.target.value })} className="w-full px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="">{t('filter_all')}</option>
+                {uniquePorts.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            {/* 状态 */}
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('filter_status')}</label>
+              <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="w-full px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="">{t('filter_all')}</option>
+                <option value={OrderStatus.PENDING}>{t('status_pending')}</option>
+                <option value={OrderStatus.IN_PRODUCTION}>{t('status_in_production')}</option>
+                <option value={OrderStatus.READY_TO_SHIP}>{t('status_ready_to_ship')}</option>
+                <option value={OrderStatus.SHIPPED}>{t('status_shipped')}</option>
+              </select>
+            </div>
+            {/* 贸易类型 */}
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('filter_trade_type')}</label>
+              <select value={filters.tradeType} onChange={(e) => setFilters({ ...filters, tradeType: e.target.value })} className="w-full px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="">{t('filter_all')}</option>
+                <option value={TradeType.GENERAL}>{t('trade_general')}</option>
+                <option value={TradeType.BONDED}>{t('trade_bonded')}</option>
+              </select>
+            </div>
+            {/* 对接人 */}
+            <div>
+              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">{t('filter_contact')}</label>
+              <select value={filters.contactPerson} onChange={(e) => setFilters({ ...filters, contactPerson: e.target.value })} className="w-full px-2 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="">{t('filter_all')}</option>
+                {uniqueContacts.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
 
       {viewMode === 'calendar' && <OrderCalendar orders={orders} onSelectOrder={(o) => { setEditingOrder({ ...o }); setShowEditModal(true); }} onCreateOrder={(date) => { setEditingOrder({ id: '', date: new Date().toISOString().split('T')[0], client: '', styleNo: '', piNo: '', totalTons: 0, containers: 1, packagesPerContainer: 30, port: '', contactPerson: '', tradeType: TradeType.GENERAL, requirements: '', status: OrderStatus.PENDING, isLargeOrder: false, largeOrderAck: false, expectedShipDate: date } as Order); setShowEditModal(true); }} />}
 
@@ -530,7 +670,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
         <div className="space-y-3">
           {displayOrders.length === 0 && <div className="text-center py-8 text-slate-400">{t('no_orders_load')}</div>}
           {displayOrders.map((order) => {
-            const { percent, isShortage } = calculateFulfillment(order, inventory, lines);
+            const { percent, isShortage } = calculateFulfillment(order, inventory, lines, orders);
             return (
               <div key={order.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3" onClick={() => handleOpenEdit(order)}>
                 <div className="flex items-start justify-between mb-2">
@@ -603,7 +743,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {displayOrders.map((order, idx) => {
-                const { percent, isShortage } = calculateFulfillment(order, inventory, lines);
+                const { percent, isShortage } = calculateFulfillment(order, inventory, lines, orders);
                 const isUrgent = order.isLargeOrder && !order.largeOrderAck;
                 const isExpanded = expandedId === order.id;
                 return (
@@ -671,10 +811,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
             </tbody>
             <tfoot className="bg-slate-100 dark:bg-slate-900 border-t-2 border-slate-300 dark:border-slate-600">
               <tr>
-                <td className="px-3 py-3 text-slate-500 dark:text-slate-400 font-medium" colSpan={4}>{t('total_summary')} ({displayOrders.length} {t('order_unit')})</td>
+                <td className="px-3 py-3 text-slate-500 dark:text-slate-400 font-medium" colSpan={5}>{t('total_summary')} ({displayOrders.length} {t('order_unit')})</td>
                 <td className="px-3 py-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">{displayOrders.reduce((sum, o) => sum + o.totalTons, 0).toFixed(2)}</td>
                 <td className="px-3 py-3 text-center font-mono font-medium text-slate-700 dark:text-slate-300">{displayOrders.reduce((sum, o) => sum + o.containers, 0)}</td>
-                <td colSpan={4}></td>
+                <td className="bg-slate-100 dark:bg-slate-900" colSpan={4}></td>
               </tr>
             </tfoot>
           </table>

@@ -226,7 +226,7 @@ const WarehouseModals: React.FC<WarehouseModalsProps> = ({
                       <td className="px-3 py-2 text-xs text-slate-400 whitespace-nowrap">{new Date(log.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
                       <td className="px-3 py-2 font-mono text-xs">{log.styleNo}</td>
                       <td className="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">{log.warehouseType === 'bonded' ? t('wh_bonded') : t('wh_general')}/{log.packageSpec || '820kg'}</td>
-                      <td className="px-3 py-2"><span className={`px-1.5 py-0.5 rounded text-xs whitespace-nowrap ${log.action === 'adjust' ? 'bg-blue-100 text-blue-700' : log.action === 'lock' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{log.action === 'adjust' ? t('inv_edit') : log.action === 'lock' ? t('inv_lock') : t('inv_unlock')}</span></td>
+                      <td className="px-3 py-2"><span className={`px-1.5 py-0.5 rounded text-xs whitespace-nowrap ${log.action === 'adjust' ? 'bg-blue-100 text-blue-700' : log.action === 'lock' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{log.action === 'adjust' ? t('inv_stocktake') : log.action === 'lock' ? t('inv_lock') : t('inv_unlock')}</span></td>
                       <td className="px-3 py-2 text-xs font-mono whitespace-nowrap">A:{log.beforeGradeA}→{log.afterGradeA} B:{log.beforeGradeB}→{log.afterGradeB}</td>
                       <td className="px-3 py-2 text-xs text-slate-500 truncate max-w-40">{log.reason || '-'}</td>
                     </tr>

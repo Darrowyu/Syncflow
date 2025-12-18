@@ -10,6 +10,7 @@ import { exportInventoryToExcel } from '../../utils/excelExport';
 import InventorySection from './InventorySection';
 import OrdersSection from './OrdersSection';
 import WarehouseModals from './WarehouseModals';
+import StocktakeSection from './StocktakeSection';
 
 interface WarehouseViewProps {
   orders: Order[];
@@ -36,7 +37,9 @@ interface PendingItem { lineId: number; lineName: string; subLineId?: string; su
 const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines, incidents, onConfirmLoad, onLogIncident, onResolveIncident, onDeleteIncident, onStockIn, onStockOut, onUpdateStock, onGetTransactions, onProductionIn, onSetSafetyStock, onLockStock, onUnlockStock }) => {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState<'pending' | 'inventory' | 'orders' | 'incidents'>('inventory');
+  const [mainTab, setMainTab] = useState<'inventory' | 'loading'>('inventory');
+  const [invSubTab, setInvSubTab] = useState<'stock' | 'stocktake' | 'pending'>('stock');
+  const [loadSubTab, setLoadSubTab] = useState<'orders' | 'incidents'>('orders');
   const [showIncidentModal, setShowIncidentModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [incidentReason, setIncidentReason] = useState('stock_taken');
@@ -160,22 +163,35 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* 标签页切换 */}
-      <div className="flex justify-end items-center">
+      {/* 主Tab切换 */}
+      <div className="flex justify-between items-center">
         <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex">
-          {hasPendingStockIn && <button onClick={() => setActiveTab('pending')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${activeTab === 'pending' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '待入库' : t('inv_pending_in')}</button>}
-          <button onClick={() => setActiveTab('inventory')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${activeTab === 'inventory' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '库存' : t('inv_title')}</button>
-          <button onClick={() => setActiveTab('orders')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${activeTab === 'orders' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '待装车' : t('wh_pending_load')}</button>
-          <button onClick={() => setActiveTab('incidents')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${activeTab === 'incidents' ? 'bg-white dark:bg-slate-700 shadow text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '异常' : t('incident_log')}</button>
+          <button onClick={() => setMainTab('inventory')} className={`px-3 md:px-5 py-2 rounded text-sm md:text-base font-medium transition ${mainTab === 'inventory' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('wh_tab_inventory')}</button>
+          <button onClick={() => setMainTab('loading')} className={`px-3 md:px-5 py-2 rounded text-sm md:text-base font-medium transition ${mainTab === 'loading' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('wh_tab_loading')}</button>
+        </div>
+        {/* 子Tab切换 */}
+        <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex">
+          {mainTab === 'inventory' ? (
+            <>
+              {hasPendingStockIn && <button onClick={() => setInvSubTab('pending')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${invSubTab === 'pending' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '待入库' : t('inv_pending_in')}</button>}
+              <button onClick={() => setInvSubTab('stock')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${invSubTab === 'stock' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '库存' : t('inv_title')}</button>
+              <button onClick={() => setInvSubTab('stocktake')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${invSubTab === 'stocktake' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '盘点' : t('stocktake_tab')}</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setLoadSubTab('orders')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${loadSubTab === 'orders' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '待装车' : t('wh_pending_load')}</button>
+              <button onClick={() => setLoadSubTab('incidents')} className={`px-2 md:px-4 py-1.5 rounded text-xs md:text-sm font-medium transition ${loadSubTab === 'incidents' ? 'bg-white dark:bg-slate-700 shadow text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '异常' : t('incident_log')}</button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* 待入库Tab / 库存管理Tab */}
-      {(activeTab === 'pending' || activeTab === 'inventory') && (
+      {/* 库存管理模块 */}
+      {mainTab === 'inventory' && (invSubTab === 'pending' || invSubTab === 'stock') && (
         <InventorySection
           inventory={inventory}
-          lines={activeTab === 'pending' ? lines : []}
-          filteredInventory={activeTab === 'inventory' ? filteredInventory : []}
+          lines={invSubTab === 'pending' ? lines : []}
+          filteredInventory={invSubTab === 'stock' ? filteredInventory : []}
           filterWarehouse={filterWarehouse}
           filterPackage={filterPackage}
           filterStyleNo={filterStyleNo}
@@ -200,12 +216,17 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
         />
       )}
 
-      {/* 待装车Tab / 异常记录Tab */}
-      {(activeTab === 'orders' || activeTab === 'incidents') && (
+      {/* 盘点Tab */}
+      {mainTab === 'inventory' && invSubTab === 'stocktake' && (
+        <StocktakeSection inventory={inventory} onUpdateStock={onUpdateStock} />
+      )}
+
+      {/* 装车任务模块 */}
+      {mainTab === 'loading' && (
         <OrdersSection
           orders={orders}
           incidents={incidents}
-          activeTab={activeTab}
+          activeTab={loadSubTab}
           onConfirmLoad={onConfirmLoad}
           onOpenIncident={handleOpenIncident}
           onResolveIncident={onResolveIncident}

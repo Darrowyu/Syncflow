@@ -44,7 +44,7 @@ export const translations = {
     incident_note_placeholder: "Who took it? What time? Provide details...",
     inv_title: "Inventory Management", inv_desc: "View and manage finished goods inventory.",
     inv_current_stock: "Current Stock", inv_locked: "Locked", inv_available: "Available",
-    inv_edit: "Edit", inv_in: "Stock In", inv_out: "Stock Out", inv_history: "History",
+    inv_stocktake: "Stocktake", inv_in: "Stock In", inv_out: "Stock Out", inv_history: "History",
     inv_production_in: "Production In", inv_manual_adjust: "Manual Adjust",
     inv_pending_in: "Pending Stock In", inv_pending_in_desc: "Production output waiting for warehouse confirmation",
     inv_no_pending: "No pending stock in", inv_confirm_in: "Confirm Stock In", inv_line_source: "Line",
@@ -53,6 +53,16 @@ export const translations = {
     inv_confirm: "Confirm", inv_no_data: "No inventory data", inv_preview: "Preview after operation",
     inv_transaction_history: "Transaction History", inv_type_in: "IN", inv_type_out: "OUT",
     inv_balance: "Balance", inv_time: "Time", inv_no_transactions: "No transactions",
+    // Stocktake
+    stocktake_tab: "Stocktake", stocktake_title: "Inventory Stocktake", stocktake_batch: "Batch Stocktake",
+    stocktake_records: "Stocktake Records", stocktake_reason: "Reason", stocktake_submit: "Submit Stocktake",
+    stocktake_reason_regular: "Regular Stocktake", stocktake_reason_loss: "Loss Adjustment", stocktake_reason_error: "System Error", stocktake_reason_other: "Other",
+    stocktake_original: "Original", stocktake_new: "New", stocktake_diff: "Diff",
+    stocktake_no_change: "No changes to submit", stocktake_confirm: "Confirm submit stocktake?",
+    stocktake_success: "Stocktake submitted successfully", stocktake_items: "items",
+    stocktake_date_range: "Date Range", stocktake_export: "Export Report", stocktake_no_records: "No stocktake records",
+    // Warehouse tabs
+    wh_tab_inventory: "Inventory", wh_tab_loading: "Loading Tasks",
     // Order status
     status_pending: "Pending", status_in_production: "In Production", status_ready_to_ship: "Ready to Ship", status_shipped: "Shipped",
     // Order table
@@ -91,7 +101,7 @@ export const translations = {
     query_failed: "Query failed. Please try again later.", ask_placeholder: "Ask a question...", analyzing: "Analyzing...",
     // Order Management
     view_table: "Table", view_calendar: "Calendar", tab_pending: "Pending", tab_ready: "Ready to Ship", tab_shipped: "Shipped",
-    btn_export: "Export", btn_import: "Import Orders", import_title: "Import Orders", paste_data: "Paste Data", upload_file: "Upload File",
+    btn_export: "Export", btn_import: "Import Orders", btn_search: "Search", import_title: "Import Orders", paste_data: "Paste Data", upload_file: "Upload File",
     paste_hint: "Paste data from Excel below", upload_hint: "Upload Excel file (.xlsx)",
     column_order: "Columns: Date, Client, Style, PI, Line, BL, Tons, Containers, Pkg/Cont, Port, Contact, Trade Type, Requirements",
     parse_preview: "Parse Preview", preview_count: "Preview", confirm_import: "Confirm Import", edit_order: "Edit Order",
@@ -169,7 +179,7 @@ export const translations = {
     incident_note_placeholder: "谁拉走的？什么时间？请详细说明...",
     inv_title: "库存管理", inv_desc: "查看和管理成品库存。",
     inv_current_stock: "当前库存", inv_locked: "已锁定", inv_available: "可用",
-    inv_edit: "编辑", inv_in: "入库", inv_out: "出库", inv_history: "流水",
+    inv_stocktake: "盘点", inv_in: "入库", inv_out: "出库", inv_history: "流水",
     inv_production_in: "生产入库", inv_manual_adjust: "手动调整",
     inv_pending_in: "待入库", inv_pending_in_desc: "产线产出等待仓库确认入库",
     inv_no_pending: "暂无待入库", inv_confirm_in: "确认入库", inv_line_source: "产线",
@@ -178,6 +188,16 @@ export const translations = {
     inv_confirm: "确认", inv_no_data: "暂无库存数据", inv_preview: "操作后预览",
     inv_transaction_history: "库存流水记录", inv_type_in: "入库", inv_type_out: "出库",
     inv_balance: "余额", inv_time: "时间", inv_no_transactions: "暂无流水记录",
+    // Stocktake
+    stocktake_tab: "盘点", stocktake_title: "库存盘点", stocktake_batch: "批量盘点",
+    stocktake_records: "盘点记录", stocktake_reason: "盘点原因", stocktake_submit: "提交盘点",
+    stocktake_reason_regular: "定期盘点", stocktake_reason_loss: "损耗调整", stocktake_reason_error: "系统误差", stocktake_reason_other: "其他",
+    stocktake_original: "原值", stocktake_new: "新值", stocktake_diff: "差异",
+    stocktake_no_change: "没有需要提交的修改", stocktake_confirm: "确认提交盘点结果？",
+    stocktake_success: "盘点提交成功", stocktake_items: "项",
+    stocktake_date_range: "日期范围", stocktake_export: "导出报告", stocktake_no_records: "暂无盘点记录",
+    // Warehouse tabs
+    wh_tab_inventory: "库存管理", wh_tab_loading: "装车任务",
     // Order status
     status_pending: "待处理", status_in_production: "生产中", status_ready_to_ship: "齐料待发", status_shipped: "已出货",
     // Order table
@@ -216,7 +236,7 @@ export const translations = {
     query_failed: "查询失败，请稍后重试。", ask_placeholder: "输入问题...", analyzing: "分析中...",
     // Order Management
     view_table: "表格", view_calendar: "日历", tab_pending: "待处理", tab_ready: "待发货", tab_shipped: "已出货",
-    btn_export: "导出", btn_import: "导入订单", import_title: "导入订单", paste_data: "粘贴数据", upload_file: "上传文件",
+    btn_export: "导出", btn_import: "导入订单", btn_search: "查询", import_title: "导入订单", paste_data: "粘贴数据", upload_file: "上传文件",
     paste_hint: "从Excel复制数据粘贴到下方", upload_hint: "上传Excel文件 (.xlsx)",
     column_order: "列顺序：日期、客户、款号、PI号、产线、提单号、总量(t)、柜数、包/柜、港口、对接人、贸易类型、装货要求",
     parse_preview: "解析预览", preview_count: "预览", confirm_import: "确认导入", edit_order: "编辑订单",

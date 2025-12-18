@@ -48,7 +48,7 @@ const InventoryTable: React.FC<InventoryTableProps> = memo(({ inventory, onStock
                   <div className="flex justify-center space-x-1">
                     {onStockIn && <button onClick={() => onStockIn(item.styleNo)} className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/50 rounded" title={t('inv_in')}><Plus size={14} /></button>}
                     {onStockOut && <button onClick={() => onStockOut(item.styleNo)} className="p-1.5 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/50 rounded" title={t('inv_out')}><Minus size={14} /></button>}
-                    {onEdit && <button onClick={() => onEdit(item.styleNo)} className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title={t('inv_edit')}><Edit2 size={14} /></button>}
+                    {onEdit && <button onClick={() => onEdit(item.styleNo)} className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title={t('inv_stocktake')}><Edit2 size={14} /></button>}
                     {onHistory && <button onClick={() => onHistory(item.styleNo)} className="p-1.5 text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded" title={t('inv_history')}><History size={14} /></button>}
                   </div>
                 </td>

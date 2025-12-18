@@ -1,9 +1,58 @@
-import React from 'react';
-import { InventoryItem, ProductLine, LineStatus, WarehouseType, PackageSpec, PACKAGE_SPECS } from '../../types';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { InventoryItem, ProductLine, LineStatus, WarehouseType, PACKAGE_SPECS } from '../../types';
 import { useLanguage } from '../../i18n';
-import { Package, Plus, Minus, Edit2, History, Lock, Unlock, Settings, Filter, Factory } from 'lucide-react';
+import { Package, Plus, Minus, History, Lock, Unlock, Settings, Filter, Factory, MoreHorizontal } from 'lucide-react';
 import { useIsMobile } from '../../hooks';
 import InventoryAlerts from './InventoryAlerts';
+
+interface ActionMenuProps {
+  item: InventoryItem;
+  onShowHistory: (styleNo: string, warehouseType?: string, packageSpec?: string) => void;
+  onOpenLockModal: (item: InventoryItem) => void;
+  onOpenSafetyModal: (item: InventoryItem) => void;
+  onGetTransactions?: boolean;
+  onLockStock?: boolean;
+  onUnlockStock?: boolean;
+  onSetSafetyStock?: boolean;
+}
+
+const ActionMenu: React.FC<ActionMenuProps> = ({ item, onShowHistory, onOpenLockModal, onOpenSafetyModal, onGetTransactions, onLockStock, onUnlockStock, onSetSafetyStock }) => {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (open) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open, handleClickOutside]);
+
+  const menuItems = [
+    onGetTransactions && { icon: <History size={14} />, label: t('inv_history'), onClick: () => onShowHistory(item.styleNo, item.warehouseType, item.packageSpec) },
+    (onLockStock || onUnlockStock) && { icon: (item.lockedForToday || 0) > 0 ? <Lock size={14} /> : <Unlock size={14} />, label: t('inv_lock_unlock'), onClick: () => onOpenLockModal(item) },
+    onSetSafetyStock && { icon: <Settings size={14} />, label: t('inv_safety_stock'), onClick: () => onOpenSafetyModal(item) },
+  ].filter(Boolean) as { icon: React.ReactNode; label: string; onClick: () => void }[];
+
+  if (menuItems.length === 0) return null;
+
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(!open)} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title={t('more_items')}><MoreHorizontal size={14} /></button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 min-w-32 py-1">
+          {menuItems.map((m, i) => (
+            <button key={i} onClick={() => { m.onClick(); setOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+              {m.icon}<span>{m.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface PendingItem { lineId: number; lineName: string; subLineId?: string; subLineName?: string; styleNo: string; quantity: number; }
 
@@ -34,6 +83,8 @@ interface InventorySectionProps {
   onUnlockStock?: boolean;
 }
 
+const PAGE_SIZE = 20;
+
 const InventorySection: React.FC<InventorySectionProps> = ({
   inventory, lines, filteredInventory, filterWarehouse, filterPackage, filterStyleNo, exporting,
   onFilterWarehouseChange, onFilterPackageChange, onFilterStyleNoChange,
@@ -42,6 +93,12 @@ const InventorySection: React.FC<InventorySectionProps> = ({
 }) => {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.ceil(filteredInventory.length / PAGE_SIZE);
+  const pagedInventory = React.useMemo(() => filteredInventory.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filteredInventory, page]);
+
+  React.useEffect(() => { setPage(1); }, [filterWarehouse, filterPackage, filterStyleNo]);
 
   const pendingStockIn = React.useMemo(() => { // 计算待入库队列
     const pending: PendingItem[] = [];
@@ -159,10 +216,7 @@ const InventorySection: React.FC<InventorySectionProps> = ({
                   <div className="flex items-center gap-1">
                     {onStockIn && <button onClick={() => onOpenStockModal('in', item.styleNo, item.warehouseType, item.packageSpec)} className="p-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/50 rounded"><Plus size={14} /></button>}
                     {onStockOut && <button onClick={() => onOpenStockModal('out', item.styleNo, item.warehouseType, item.packageSpec)} className="p-1.5 text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/50 rounded"><Minus size={14} /></button>}
-                    {onUpdateStock && <button onClick={() => onOpenStockModal('edit', item.styleNo, item.warehouseType, item.packageSpec)} className="p-1.5 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 rounded"><Edit2 size={14} /></button>}
-                    {onGetTransactions && <button onClick={() => onShowHistory(item.styleNo, item.warehouseType, item.packageSpec)} className="p-1.5 text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/50 rounded"><History size={14} /></button>}
-                    {(onLockStock || onUnlockStock) && <button onClick={() => onOpenLockModal(item)} className="p-1.5 text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/50 rounded">{(item.lockedForToday || 0) > 0 ? <Lock size={14} /> : <Unlock size={14} />}</button>}
-                    {onSetSafetyStock && <button onClick={() => onOpenSafetyModal(item)} className="p-1.5 text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/50 rounded"><Settings size={14} /></button>}
+                    <ActionMenu item={item} onShowHistory={onShowHistory} onOpenLockModal={onOpenLockModal} onOpenSafetyModal={onOpenSafetyModal} onGetTransactions={onGetTransactions} onLockStock={onLockStock} onUnlockStock={onUnlockStock} onSetSafetyStock={!!onSetSafetyStock} />
                   </div>
                 </div>
               </div>
@@ -208,8 +262,8 @@ const InventorySection: React.FC<InventorySectionProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {filteredInventory.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">{t('inv_no_data')}</td></tr>}
-                  {filteredInventory.map(item => {
+                  {pagedInventory.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">{t('inv_no_data')}</td></tr>}
+                  {pagedInventory.map(item => {
                     const key = `${item.styleNo}-${item.warehouseType}-${item.packageSpec}`;
                     return (
                       <tr key={key} className="hover:bg-slate-50 dark:hover:bg-slate-700">
@@ -223,10 +277,7 @@ const InventorySection: React.FC<InventorySectionProps> = ({
                           <div className="flex justify-center space-x-1">
                             {onStockIn && <button onClick={() => onOpenStockModal('in', item.styleNo, item.warehouseType, item.packageSpec)} className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/50 rounded" title={t('inv_in')}><Plus size={14} /></button>}
                             {onStockOut && <button onClick={() => onOpenStockModal('out', item.styleNo, item.warehouseType, item.packageSpec)} className="p-1.5 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/50 rounded" title={t('inv_out')}><Minus size={14} /></button>}
-                            {onUpdateStock && <button onClick={() => onOpenStockModal('edit', item.styleNo, item.warehouseType, item.packageSpec)} className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded" title={t('inv_edit')}><Edit2 size={14} /></button>}
-                            {onGetTransactions && <button onClick={() => onShowHistory(item.styleNo, item.warehouseType, item.packageSpec)} className="p-1.5 text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded" title={t('inv_history')}><History size={14} /></button>}
-                            {(onLockStock || onUnlockStock) && <button onClick={() => onOpenLockModal(item)} className="p-1.5 text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded" title={t('inv_lock_unlock')}>{(item.lockedForToday || 0) > 0 ? <Lock size={14} /> : <Unlock size={14} />}</button>}
-                            {onSetSafetyStock && <button onClick={() => onOpenSafetyModal(item)} className="p-1.5 text-amber-500 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/50 rounded" title={t('inv_safety_stock')}><Settings size={14} /></button>}
+                            <ActionMenu item={item} onShowHistory={onShowHistory} onOpenLockModal={onOpenLockModal} onOpenSafetyModal={onOpenSafetyModal} onGetTransactions={onGetTransactions} onLockStock={onLockStock} onUnlockStock={onUnlockStock} onSetSafetyStock={!!onSetSafetyStock} />
                           </div>
                         </td>
                       </tr>
@@ -235,6 +286,16 @@ const InventorySection: React.FC<InventorySectionProps> = ({
                 </tbody>
               </table>
             </div>
+            {totalPages > 1 && (
+              <div className="flex justify-between items-center px-4 py-3 border-t border-slate-200 dark:border-slate-700">
+                <span className="text-sm text-slate-500">{filteredInventory.length} {t('stocktake_items')}</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1 text-sm border border-slate-200 dark:border-slate-700 rounded disabled:opacity-50">{t('inc_prev_page')}</button>
+                  <span className="text-sm text-slate-600 dark:text-slate-400">{page} / {totalPages}</span>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1 text-sm border border-slate-200 dark:border-slate-700 rounded disabled:opacity-50">{t('inc_next_page')}</button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

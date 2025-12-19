@@ -83,6 +83,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
   const [isDragging, setIsDragging] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [isCreating, setIsCreating] = useState(false); // 新建订单模式
   const [activeTab, setActiveTab] = useState<'all' | 'ready' | 'shipped'>('all');
   const [viewMode, setViewMode] = useState<'table' | 'calendar' | 'customers'>('table');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -406,6 +407,20 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
 
   const handleOpenEdit = (order: Order) => {
     setEditingOrder({ ...order });
+    setIsCreating(false);
+    setShowEditModal(true);
+  };
+
+  const handleOpenCreate = () => { // 新建订单
+    setEditingOrder({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      date: new Date().toISOString().split('T')[0],
+      client: '', styleNo: '', piNo: '', blNo: '', totalTons: 0, containers: 1, packagesPerContainer: 30,
+      port: '', contactPerson: '', tradeType: TradeType.GENERAL, requirements: '',
+      status: OrderStatus.PENDING, isLargeOrder: false, largeOrderAck: false,
+      loadingTimeSlot: LoadingTimeSlot.FLEXIBLE, prepDaysRequired: 0
+    });
+    setIsCreating(true);
     setShowEditModal(true);
   };
 
@@ -414,11 +429,19 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
     const tons = editingOrder.totalTons;
     const updatedOrder = { ...editingOrder, isLargeOrder: tons > 100 };
     try {
-      await patchOrder(editingOrder.id, updatedOrder);
-      setOrders(prev => prev.map(o => o.id === editingOrder.id ? updatedOrder : o));
+      if (isCreating) { // 新建
+        await createOrder(updatedOrder as Order);
+        invalidateCache('orders');
+        setOrders(prev => [...prev, updatedOrder as Order]);
+        toast.success(t('toast_order_saved'));
+      } else { // 编辑
+        await patchOrder(editingOrder.id, updatedOrder);
+        setOrders(prev => prev.map(o => o.id === editingOrder.id ? updatedOrder : o));
+        toast.success(t('toast_order_saved'));
+      }
       setShowEditModal(false);
       setEditingOrder(null);
-      toast.success(t('toast_order_saved'));
+      setIsCreating(false);
     } catch (e) {
       toast.error(t('alert_save_fail'));
     }
@@ -442,8 +465,9 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* 工具栏 - 移动端优化 */}
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+      {/* 工具栏 - 两行自适应布局 */}
+      <div className="flex flex-col gap-2">
+        {/* 第一行：视图切换 + Tab切换 */}
         <div className="flex gap-2 overflow-x-auto pb-1">
           <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex flex-shrink-0">
             <button onClick={() => setViewMode('table')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition ${viewMode === 'table' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{t('view_table')}</button>
@@ -452,13 +476,14 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
           </div>
           {viewMode === 'table' && (
             <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex flex-shrink-0">
-              <button onClick={() => setActiveTab('all')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'all' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '' : <Package size={14} className="mr-1" />}{isMobile ? t('tab_pending') : t('tab_pending')} <span className="ml-1 text-xs bg-slate-200 dark:bg-slate-600 px-1 rounded">{allOrders.length}</span></button>
-              <button onClick={() => setActiveTab('ready')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'ready' ? 'bg-white dark:bg-slate-700 shadow text-green-600' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '' : <Truck size={14} className="mr-1" />}{isMobile ? t('tab_ready') : t('tab_ready')} <span className="ml-1 text-xs bg-green-100 text-green-700 px-1 rounded">{readyOrders.length}</span></button>
+              <button onClick={() => setActiveTab('all')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'all' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '' : <Package size={14} className="mr-1" />}{t('tab_pending')} <span className="ml-1 text-xs bg-slate-200 dark:bg-slate-600 px-1 rounded">{allOrders.length}</span></button>
+              <button onClick={() => setActiveTab('ready')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'ready' ? 'bg-white dark:bg-slate-700 shadow text-green-600' : 'text-slate-600 dark:text-slate-400'}`}>{isMobile ? '' : <Truck size={14} className="mr-1" />}{t('tab_ready')} <span className="ml-1 text-xs bg-green-100 text-green-700 px-1 rounded">{readyOrders.length}</span></button>
               <button onClick={() => setActiveTab('shipped')} className={`px-2 md:px-3 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center ${activeTab === 'shipped' ? 'bg-white dark:bg-slate-700 shadow text-slate-600' : 'text-slate-600 dark:text-slate-400'}`}>{t('tab_shipped')} <span className="ml-1 text-xs bg-slate-200 dark:bg-slate-600 px-1 rounded">{shippedOrders.length}</span></button>
             </div>
           )}
         </div>
-        <div className="flex gap-2 flex-wrap">
+        {/* 第二行：筛选 + 导出 + 操作按钮 */}
+        <div className="flex flex-wrap items-center gap-2">
           {viewMode === 'table' && (
             <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center px-3 py-2 border rounded-lg transition text-sm ${hasActiveFilters ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
               <Filter size={16} className="mr-1" />
@@ -467,6 +492,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
             </button>
           )}
           {!isMobile && <button onClick={() => exportOrdersToExcel(displayOrders)} className="flex items-center px-3 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition text-sm" title={t('btn_export')}><Download size={16} className="mr-1" />{t('btn_export')}{hasActiveFilters && <span className="ml-1 text-xs text-blue-500">({displayOrders.length})</span>}</button>}
+          <div className="flex-1" /> {/* 弹性占位 */}
+          <button onClick={handleOpenCreate} className="flex items-center px-3 md:px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm"><Package size={16} className="mr-1 md:mr-2" />{isMobile ? '+' : t('btn_add_order')}</button>
           <button onClick={() => setShowExcelModal(true)} className="flex items-center px-3 md:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"><Upload size={16} className="mr-1 md:mr-2" />{isMobile ? '' : t('btn_import')}</button>
           <button onClick={() => setShowParseModal(true)} className="flex items-center px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"><Bot size={16} className="mr-1 md:mr-2" />{isMobile ? 'AI' : t('btn_import_ai')}</button>
         </div>
@@ -638,7 +665,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
         )}
       </Modal>
 
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title={t('edit_order')} titleIcon={<Edit2 size={20} />}>
+      <Modal isOpen={showEditModal} onClose={() => { setShowEditModal(false); setIsCreating(false); }} title={isCreating ? t('create_order') : t('edit_order')} titleIcon={isCreating ? <Package size={20} /> : <Edit2 size={20} />}>
         {editingOrder && (
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             <div className="grid grid-cols-2 gap-4">
@@ -650,7 +677,29 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_tons')} *</label><input type="number" step="0.01" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.totalTons} onChange={(e) => setEditingOrder({ ...editingOrder, totalTons: parseFloat(e.target.value) || 0 })} /></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_containers')}</label><input type="number" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.containers} onChange={(e) => setEditingOrder({ ...editingOrder, containers: parseInt(e.target.value) || 1 })} /></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_pkg')}</label><input type="number" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.packagesPerContainer} onChange={(e) => setEditingOrder({ ...editingOrder, packagesPerContainer: parseInt(e.target.value) || 30 })} /></div>
-              <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_line')}</label><select className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.lineId || ''} onChange={(e) => setEditingOrder({ ...editingOrder, lineId: e.target.value ? parseInt(e.target.value) : undefined })}><option value="">-</option>{lines.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</select></div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-500 mb-1">{t('field_line')}</label>
+                <div className="flex flex-wrap gap-2 p-2 border border-slate-300 rounded-lg bg-slate-50 dark:bg-slate-700 max-h-24 overflow-y-auto">
+                  {lines.map(l => {
+                    const selectedIds = editingOrder.lineIds ? editingOrder.lineIds.split(/[\/,]/).map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : (editingOrder.lineId ? [editingOrder.lineId] : []);
+                    const isChecked = selectedIds.includes(l.id);
+                    return (
+                      <label key={l.id} className={`flex items-center px-2 py-1 rounded cursor-pointer text-sm ${isChecked ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : 'bg-white dark:bg-slate-600 text-slate-600 dark:text-slate-300'}`}>
+                        <input type="checkbox" className="mr-1.5" checked={isChecked} onChange={(e) => {
+                          let newIds = [...selectedIds];
+                          if (e.target.checked) newIds.push(l.id);
+                          else newIds = newIds.filter(id => id !== l.id);
+                          newIds.sort((a, b) => a - b);
+                          if (newIds.length === 0) setEditingOrder({ ...editingOrder, lineId: undefined, lineIds: undefined });
+                          else if (newIds.length === 1) setEditingOrder({ ...editingOrder, lineId: newIds[0], lineIds: undefined });
+                          else setEditingOrder({ ...editingOrder, lineId: undefined, lineIds: newIds.join('/') });
+                        }} />
+                        {l.name}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_bl')}</label><input type="text" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.blNo || ''} onChange={(e) => setEditingOrder({ ...editingOrder, blNo: e.target.value })} /></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_port')}</label><input type="text" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.port} onChange={(e) => setEditingOrder({ ...editingOrder, port: e.target.value })} /></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_contact')}</label><input type="text" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.contactPerson} onChange={(e) => setEditingOrder({ ...editingOrder, contactPerson: e.target.value })} /></div>

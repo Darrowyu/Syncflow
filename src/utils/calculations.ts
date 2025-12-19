@@ -39,33 +39,56 @@ export interface FulfillmentOptions {
   includeProduction?: boolean; // 是否计入今日产线产能
 }
 
+// 解析订单的产线ID列表
+const parseOrderLineIds = (order: Order): number[] => {
+  if (order.lineIds) { // 多产线格式：如 "1/2" 或 "1,2,3"
+    return order.lineIds.split(/[\/,]/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+  }
+  if (order.lineId) return [order.lineId];
+  return []; // 空数组表示不限产线
+};
+
 export const calculateFulfillment = (
   order: Order,
   inventory: InventoryItem[],
   lines: ProductLine[],
-  allOrders?: Order[], // 所有订单（用于计算其他订单占用）
+  allOrders?: Order[],
   options?: FulfillmentOptions
 ): FulfillmentResult => {
   const { includeProduction = false } = options || {};
+  const orderLineIds = parseOrderLineIds(order); // 订单指定的产线
 
   // 齐料待发订单：库存已锁定，满足率固定100%
   if (order.status === OrderStatus.READY_TO_SHIP) {
     return { available: order.totalTons, percent: 100, isShortage: false };
   }
 
-  // 获取指定仓库的可用库存（扣除锁定量）
+  // 获取指定仓库的可用库存（扣除锁定量，按产线筛选）
   const getAvailableStock = (whType: 'general' | 'bonded'): number => {
-    const matchItems = order.packageSpec
+    let matchItems = order.packageSpec
       ? inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === whType && i.packageSpec === order.packageSpec)
       : inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === whType);
+    // 如果订单指定了产线，只计算该产线的库存
+    if (orderLineIds.length > 0) {
+      matchItems = matchItems.filter(i => i.lineId && orderLineIds.includes(i.lineId));
+    }
     return matchItems.reduce((sum, i) => sum + Math.max(0, i.currentStock - (i.lockedForToday || 0)), 0);
+  };
+
+  // 检查两个订单是否有产线重叠（用于判断库存竞争）
+  const hasLineOverlap = (otherOrder: Order): boolean => {
+    if (orderLineIds.length === 0) return true; // 当前订单未指定产线，与所有订单竞争
+    const otherLineIds = parseOrderLineIds(otherOrder);
+    if (otherLineIds.length === 0) return true; // 其他订单未指定产线，与所有订单竞争
+    return orderLineIds.some(id => otherLineIds.includes(id)); // 有交集才竞争
   };
 
   // 计算"齐料待发"订单锁定的库存量（优先级最高，必须先扣除）
   const getReadyToShipLocked = (whType: 'general' | 'bonded'): number => {
     if (!allOrders) return 0;
     return allOrders
-      .filter(o => o.id !== order.id && o.styleNo === order.styleNo && o.status === OrderStatus.READY_TO_SHIP) // 仅齐料待发订单
+      .filter(o => o.id !== order.id && o.styleNo === order.styleNo && o.status === OrderStatus.READY_TO_SHIP)
+      .filter(o => hasLineOverlap(o)) // 只计算产线有重叠的订单
       .filter(o => {
         if (o.warehouseAllocation) return true;
         return (o.tradeType === 'Bonded' ? 'bonded' : 'general') === whType;
@@ -82,8 +105,9 @@ export const calculateFulfillment = (
   const getOtherOrdersOccupied = (whType: 'general' | 'bonded'): number => {
     if (!allOrders) return 0;
     return allOrders
-      .filter(o => o.id !== order.id && o.styleNo === order.styleNo) // 同款号其他订单
-      .filter(o => o.status !== OrderStatus.SHIPPED && o.status !== OrderStatus.READY_TO_SHIP) // 排除已发货和齐料待发（已单独计算）
+      .filter(o => o.id !== order.id && o.styleNo === order.styleNo)
+      .filter(o => o.status !== OrderStatus.SHIPPED && o.status !== OrderStatus.READY_TO_SHIP)
+      .filter(o => hasLineOverlap(o)) // 只计算产线有重叠的订单
       .filter(o => {
         if (o.warehouseAllocation) return true;
         return (o.tradeType === 'Bonded' ? 'bonded' : 'general') === whType;
@@ -96,9 +120,20 @@ export const calculateFulfillment = (
       }, 0);
   };
 
-  // 计算今日产线产能（可选）
+  // 计算今日产线产能（可选，按订单指定产线筛选）
   const getTodayProduction = (): number => {
     if (!includeProduction) return 0;
+    if (orderLineIds.length > 0) { // 只计算订单指定产线的产能
+      let total = 0;
+      lines.filter(l => l.status === 'Running' && orderLineIds.includes(l.id)).forEach(l => {
+        if (l.subLines && l.subLines.length > 0) {
+          l.subLines.filter(sub => sub.currentStyle === order.styleNo).forEach(sub => { total += sub.exportCapacity || 0; });
+        } else if (l.currentStyle === order.styleNo) {
+          total += l.exportCapacity || 0;
+        }
+      });
+      return total;
+    }
     return calculateStyleProduction(order.styleNo, lines);
   };
 

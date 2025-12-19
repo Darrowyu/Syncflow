@@ -2,9 +2,16 @@ import { Order, OrderStatus, TradeType, ProductLine, InventoryItem, LineStatus, 
 
 // 初始数据仅用于备用/演示，实际数据从数据库加载
 export const INITIAL_INVENTORY: InventoryItem[] = [
-  { styleNo: 'BE3250', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 80, gradeA: 80, gradeB: 0, stockTMinus1: 80, lockedForToday: 0 },
-  { styleNo: 'BE2250', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 5, gradeA: 5, gradeB: 0, stockTMinus1: 5, lockedForToday: 0 },
-  { styleNo: 'BE3340', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 250, gradeA: 250, gradeB: 0, stockTMinus1: 250, lockedForToday: 0 },
+  // BE3250 - Line 1, Line 2, Line 8 生产
+  { styleNo: 'BE3250', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 30, gradeA: 30, gradeB: 0, stockTMinus1: 30, lockedForToday: 0, lineId: 1, lineName: 'Line 1' },
+  { styleNo: 'BE3250', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 25, gradeA: 25, gradeB: 0, stockTMinus1: 25, lockedForToday: 0, lineId: 2, lineName: 'Line 2' },
+  { styleNo: 'BE3250', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 25, gradeA: 25, gradeB: 0, stockTMinus1: 25, lockedForToday: 0, lineId: 8, lineName: 'Line 8' },
+  // BE2250 - Line 3, Line 9 生产
+  { styleNo: 'BE2250', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 3, gradeA: 3, gradeB: 0, stockTMinus1: 3, lockedForToday: 0, lineId: 3, lineName: 'Line 3' },
+  { styleNo: 'BE2250', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 2, gradeA: 2, gradeB: 0, stockTMinus1: 2, lockedForToday: 0, lineId: 9, lineName: 'Line 9' },
+  // BE3340 - Line 5, Line 6 生产
+  { styleNo: 'BE3340', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, currentStock: 150, gradeA: 150, gradeB: 0, stockTMinus1: 150, lockedForToday: 0, lineId: 5, lineName: 'Line 5' },
+  { styleNo: 'BE3340', warehouseType: WarehouseType.BONDED, packageSpec: PackageSpec.KG820, currentStock: 100, gradeA: 100, gradeB: 0, stockTMinus1: 100, lockedForToday: 0, lineId: 6, lineName: 'Line 6' },
 ];
 
 export const INITIAL_LINES: ProductLine[] = [

@@ -10,19 +10,19 @@ let db = null;
 
 export async function initDatabase() {
   const SQL = await initSqlJs();
-  
+
   if (existsSync(DB_PATH)) {
     const buffer = readFileSync(DB_PATH);
     db = new SQL.Database(buffer);
     // 确保新表存在
     db.run("CREATE TABLE IF NOT EXISTS styles (id INTEGER PRIMARY KEY AUTOINCREMENT, style_no TEXT UNIQUE NOT NULL, name TEXT, category TEXT, unit_weight REAL DEFAULT 0, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
     // 迁移：添加style_changed_at列
-    try { db.run("ALTER TABLE production_lines ADD COLUMN style_changed_at TEXT"); } catch (e) {}
+    try { db.run("ALTER TABLE production_lines ADD COLUMN style_changed_at TEXT"); } catch (e) { }
     // 迁移：创建款号变更历史表
     db.run("CREATE TABLE IF NOT EXISTS style_change_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, line_id INTEGER NOT NULL, from_style TEXT, to_style TEXT NOT NULL, changed_at TEXT NOT NULL)");
     // 迁移：添加export_capacity和sub_lines列
-    try { db.run("ALTER TABLE production_lines ADD COLUMN export_capacity REAL DEFAULT 0"); } catch (e) {}
-    try { db.run("ALTER TABLE production_lines ADD COLUMN sub_lines TEXT"); } catch (e) {}
+    try { db.run("ALTER TABLE production_lines ADD COLUMN export_capacity REAL DEFAULT 0"); } catch (e) { }
+    try { db.run("ALTER TABLE production_lines ADD COLUMN sub_lines TEXT"); } catch (e) { }
     // 迁移：从产线表中提取正在使用的款号，自动添加到款号维护表
     try {
       const usedStyles = new Set();
@@ -36,7 +36,7 @@ export async function initDatabase() {
             try {
               const subLines = JSON.parse(subLinesJson);
               subLines.forEach(sub => { if (sub.currentStyle && sub.currentStyle !== '-') usedStyles.add(sub.currentStyle); });
-            } catch (e) {}
+            } catch (e) { }
           }
         });
       }
@@ -45,48 +45,53 @@ export async function initDatabase() {
       });
     } catch (e) { console.error('Style migration error:', e); }
     // 迁移：添加current_stock列和库存流水表
-    try { db.run("ALTER TABLE inventory ADD COLUMN current_stock REAL DEFAULT 0"); } catch (e) {}
+    try { db.run("ALTER TABLE inventory ADD COLUMN current_stock REAL DEFAULT 0"); } catch (e) { }
     db.run("CREATE TABLE IF NOT EXISTS inventory_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, style_no TEXT NOT NULL, type TEXT NOT NULL, quantity REAL NOT NULL, balance REAL NOT NULL, source TEXT, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
     // 迁移：添加库存等级字段 grade_a(优等品) grade_b(一等品)
-    try { db.run("ALTER TABLE inventory ADD COLUMN grade_a REAL DEFAULT 0"); } catch (e) {}
-    try { db.run("ALTER TABLE inventory ADD COLUMN grade_b REAL DEFAULT 0"); } catch (e) {}
-    try { db.run("ALTER TABLE inventory_transactions ADD COLUMN grade TEXT DEFAULT 'A'"); } catch (e) {}
+    try { db.run("ALTER TABLE inventory ADD COLUMN grade_a REAL DEFAULT 0"); } catch (e) { }
+    try { db.run("ALTER TABLE inventory ADD COLUMN grade_b REAL DEFAULT 0"); } catch (e) { }
+    try { db.run("ALTER TABLE inventory_transactions ADD COLUMN grade TEXT DEFAULT 'A'"); } catch (e) { }
     // 初始化等级数据：将现有库存全部设为优等品
-    try { db.run("UPDATE inventory SET grade_a = current_stock WHERE grade_a = 0 AND current_stock > 0"); } catch (e) {}
+    try { db.run("UPDATE inventory SET grade_a = current_stock WHERE grade_a = 0 AND current_stock > 0"); } catch (e) { }
     // 迁移：添加仓库类型和包装规格字段
-    try { db.run("ALTER TABLE inventory ADD COLUMN warehouse_type TEXT DEFAULT 'general'"); } catch (e) {}
-    try { db.run("ALTER TABLE inventory ADD COLUMN package_spec TEXT DEFAULT '820kg'"); } catch (e) {}
-    try { db.run("ALTER TABLE inventory_transactions ADD COLUMN warehouse_type TEXT DEFAULT 'general'"); } catch (e) {}
-    try { db.run("ALTER TABLE inventory_transactions ADD COLUMN package_spec TEXT DEFAULT '820kg'"); } catch (e) {}
+    try { db.run("ALTER TABLE inventory ADD COLUMN warehouse_type TEXT DEFAULT 'general'"); } catch (e) { }
+    try { db.run("ALTER TABLE inventory ADD COLUMN package_spec TEXT DEFAULT '820kg'"); } catch (e) { }
+    try { db.run("ALTER TABLE inventory_transactions ADD COLUMN warehouse_type TEXT DEFAULT 'general'"); } catch (e) { }
+    try { db.run("ALTER TABLE inventory_transactions ADD COLUMN package_spec TEXT DEFAULT '820kg'"); } catch (e) { }
     // 初始化仓库类型和包装规格默认值
-    try { db.run("UPDATE inventory SET warehouse_type = 'general' WHERE warehouse_type IS NULL"); } catch (e) {}
-    try { db.run("UPDATE inventory SET package_spec = '820kg' WHERE package_spec IS NULL"); } catch (e) {}
-    // 迁移：重建inventory表以支持复合唯一约束 (style_no + warehouse_type + package_spec)
+    try { db.run("UPDATE inventory SET warehouse_type = 'general' WHERE warehouse_type IS NULL"); } catch (e) { }
+    try { db.run("UPDATE inventory SET package_spec = '820kg' WHERE package_spec IS NULL"); } catch (e) { }
+    // 迁移：重建inventory表以支持复合唯一约束 (style_no + warehouse_type + package_spec + line_id)
     try {
       const tableSql = db.exec("SELECT sql FROM sqlite_master WHERE type='table' AND name='inventory'");
       const sql = tableSql.length > 0 ? tableSql[0].values[0][0] : '';
-      const needsRebuild = sql && !sql.includes('UNIQUE(style_no, warehouse_type, package_spec)');
+      // 检查是否需要重建：旧约束不含line_id
+      const needsRebuild = sql && !sql.includes('UNIQUE(style_no, warehouse_type, package_spec, line_id)');
       if (needsRebuild) {
-        console.log('[Migration] Rebuilding inventory table for composite unique constraint...');
+        console.log('[Migration] Rebuilding inventory table for line_id unique constraint...');
         db.run("ALTER TABLE inventory RENAME TO inventory_old");
-        db.run("CREATE TABLE inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, style_no TEXT NOT NULL, warehouse_type TEXT DEFAULT 'general', package_spec TEXT DEFAULT '820kg', current_stock REAL DEFAULT 0, grade_a REAL DEFAULT 0, grade_b REAL DEFAULT 0, stock_t_minus_1 REAL DEFAULT 0, locked_for_today REAL DEFAULT 0, UNIQUE(style_no, warehouse_type, package_spec))");
-        db.run("INSERT INTO inventory (style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today) SELECT style_no, COALESCE(warehouse_type, 'general'), COALESCE(package_spec, '820kg'), current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today FROM inventory_old");
+        db.run("CREATE TABLE inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, style_no TEXT NOT NULL, warehouse_type TEXT DEFAULT 'general', package_spec TEXT DEFAULT '820kg', current_stock REAL DEFAULT 0, grade_a REAL DEFAULT 0, grade_b REAL DEFAULT 0, stock_t_minus_1 REAL DEFAULT 0, locked_for_today REAL DEFAULT 0, safety_stock REAL DEFAULT 0, last_updated TEXT, line_id INTEGER, line_name TEXT, UNIQUE(style_no, warehouse_type, package_spec, line_id))");
+        db.run("INSERT INTO inventory (style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today, safety_stock, last_updated, line_id, line_name) SELECT style_no, COALESCE(warehouse_type, 'general'), COALESCE(package_spec, '820kg'), current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today, COALESCE(safety_stock, 0), last_updated, line_id, line_name FROM inventory_old");
         db.run("DROP TABLE inventory_old");
-        console.log('[Migration] Inventory table rebuilt successfully');
+        console.log('[Migration] Inventory table rebuilt with line_id constraint');
       }
     } catch (e) { console.error('[Migration] Inventory table rebuild error:', e.message); }
     // 迁移：添加异常记录resolved字段
-    try { db.run("ALTER TABLE incidents ADD COLUMN resolved INTEGER DEFAULT 0"); } catch (e) {}
-    try { db.run("ALTER TABLE incidents ADD COLUMN resolved_at TEXT"); } catch (e) {}
+    try { db.run("ALTER TABLE incidents ADD COLUMN resolved INTEGER DEFAULT 0"); } catch (e) { }
+    try { db.run("ALTER TABLE incidents ADD COLUMN resolved_at TEXT"); } catch (e) { }
     // 迁移：添加库存安全库存、最后更新时间字段
-    try { db.run("ALTER TABLE inventory ADD COLUMN safety_stock REAL DEFAULT 0"); } catch (e) {}
-    try { db.run("ALTER TABLE inventory ADD COLUMN last_updated TEXT"); } catch (e) {}
+    try { db.run("ALTER TABLE inventory ADD COLUMN safety_stock REAL DEFAULT 0"); } catch (e) { }
+    try { db.run("ALTER TABLE inventory ADD COLUMN last_updated TEXT"); } catch (e) { }
     // 迁移：添加库存流水关联订单ID字段
-    try { db.run("ALTER TABLE inventory_transactions ADD COLUMN order_id TEXT"); } catch (e) {}
+    try { db.run("ALTER TABLE inventory_transactions ADD COLUMN order_id TEXT"); } catch (e) { }
     // 迁移：创建库存审计日志表
-    db.run("CREATE TABLE IF NOT EXISTS inventory_audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, style_no TEXT NOT NULL, warehouse_type TEXT DEFAULT 'general', package_spec TEXT DEFAULT '820kg', action TEXT NOT NULL, before_grade_a REAL DEFAULT 0, before_grade_b REAL DEFAULT 0, after_grade_a REAL DEFAULT 0, after_grade_b REAL DEFAULT 0, reason TEXT, operator TEXT DEFAULT 'system', created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+    db.run("CREATE TABLE IF NOT EXISTS inventory_audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, style_no TEXT NOT NULL, warehouse_type TEXT DEFAULT 'general', package_spec TEXT DEFAULT '820kg', line_id INTEGER, line_name TEXT, action TEXT NOT NULL, before_grade_a REAL DEFAULT 0, before_grade_b REAL DEFAULT 0, after_grade_a REAL DEFAULT 0, after_grade_b REAL DEFAULT 0, reason TEXT, operator TEXT DEFAULT 'system', created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+    // 迁移：审计日志表添加产线字段
+    try { db.run("ALTER TABLE inventory_audit_logs ADD COLUMN line_id INTEGER"); } catch (e) { }
+    try { db.run("ALTER TABLE inventory_audit_logs ADD COLUMN line_name TEXT"); } catch (e) { }
+    db.run("CREATE INDEX IF NOT EXISTS idx_inventory_audit_logs_line_id ON inventory_audit_logs(line_id)");
     // 迁移：添加订单多产线字段
-    try { db.run("ALTER TABLE orders ADD COLUMN line_ids TEXT"); } catch (e) {}
+    try { db.run("ALTER TABLE orders ADD COLUMN line_ids TEXT"); } catch (e) { }
     // 迁移：添加索引优化查询性能
     db.run("CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(date)");
     db.run("CREATE INDEX IF NOT EXISTS idx_orders_style_no ON orders(style_no)");
@@ -106,6 +111,9 @@ export async function initDatabase() {
     db.run("CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client)");
     // 迁移：订单表添加仓库分配字段
     try { db.run("ALTER TABLE orders ADD COLUMN warehouse_allocation TEXT"); } catch (e) { /* 列已存在 */ }
+    // 迁移：库存表添加产线关联字段
+    try { db.run("ALTER TABLE inventory ADD COLUMN line_id INTEGER"); } catch (e) { /* 列已存在 */ }
+    try { db.run("ALTER TABLE inventory ADD COLUMN line_name TEXT"); } catch (e) { /* 列已存在 */ }
     // 迁移：从订单中提取客户自动创建
     try {
       const clientsResult = db.exec("SELECT DISTINCT client FROM orders WHERE client IS NOT NULL AND client != ''");
@@ -124,7 +132,7 @@ export async function initDatabase() {
     seedData();
     saveDatabase();
   }
-  
+
   return db;
 }
 
@@ -166,6 +174,6 @@ function seedData() {
   db.run("INSERT INTO styles (style_no, name, category, unit_weight, note) VALUES ('BE3250', '标准管材', 'A类', 820, '常规出口款')");
   db.run("INSERT INTO styles (style_no, name, category, unit_weight, note) VALUES ('BE2250', '小管材', 'B类', 820, '高端出口款')");
   db.run("INSERT INTO styles (style_no, name, category, unit_weight, note) VALUES ('BE3340', '大管材', 'A类', 820, '大批量出口款')");
-  
+
   console.log('Database seeded with initial data');
 }

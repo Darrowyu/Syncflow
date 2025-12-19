@@ -11,6 +11,7 @@ import InventorySection from './InventorySection';
 import OrdersSection from './OrdersSection';
 import WarehouseModals from './WarehouseModals';
 import StocktakeSection from './StocktakeSection';
+import InventoryCharts from './InventoryCharts';
 
 interface WarehouseViewProps {
   orders: Order[];
@@ -25,7 +26,7 @@ interface WarehouseViewProps {
   onStockOut?: (styleNo: string, quantity: number, grade?: string, source?: string, note?: string, warehouseType?: string, packageSpec?: string) => Promise<number>;
   onUpdateStock?: (styleNo: string, gradeA: number, gradeB: number, warehouseType?: string, packageSpec?: string, reason?: string) => Promise<void>;
   onGetTransactions?: (params?: any) => Promise<any>;
-  onProductionIn?: (styleNo: string, quantity: number, grade?: string, warehouseType?: string, packageSpec?: string, lineId?: number, subLineId?: string) => Promise<void>;
+  onProductionIn?: (styleNo: string, quantity: number, grade?: string, warehouseType?: string, packageSpec?: string, lineId?: number, subLineId?: string, lineName?: string) => Promise<void>;
   onSetSafetyStock?: (styleNo: string, safetyStock: number, warehouseType?: string, packageSpec?: string) => Promise<void>;
   onLockStock?: (styleNo: string, quantity: number, warehouseType?: string, packageSpec?: string, reason?: string) => Promise<number>;
   onUnlockStock?: (styleNo: string, quantity: number, warehouseType?: string, packageSpec?: string, reason?: string) => Promise<number>;
@@ -44,13 +45,14 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [incidentReason, setIncidentReason] = useState('stock_taken');
   const [incidentNote, setIncidentNote] = useState('');
-  const [showStockModal, setShowStockModal] = useState<{ type: 'in' | 'out' | 'edit' | 'production'; styleNo: string; warehouseType: string; packageSpec: string; lineId?: number; subLineId?: string; pendingQty?: number } | null>(null);
+  const [showStockModal, setShowStockModal] = useState<{ type: 'in' | 'out' | 'edit' | 'production'; styleNo: string; warehouseType: string; packageSpec: string; lineId?: number; subLineId?: string; lineName?: string; pendingQty?: number } | null>(null);
   const [stockForm, setStockForm] = useState({ quantity: 0, grade: 'A', gradeA: 0, gradeB: 0, source: '', note: '', warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820 });
   const [showHistoryModal, setShowHistoryModal] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filterWarehouse, setFilterWarehouse] = useState<string>('all');
   const [filterPackage, setFilterPackage] = useState<string>('all');
   const [filterStyleNo, setFilterStyleNo] = useState<string>('');
+  const [filterLine, setFilterLine] = useState<string>('all');
   const [showLockModal, setShowLockModal] = useState<{ styleNo: string; warehouseType: string; packageSpec: string; currentLocked: number; currentStock: number } | null>(null);
   const [lockForm, setLockForm] = useState({ quantity: 0, reason: '' });
   const [showSafetyModal, setShowSafetyModal] = useState<{ styleNo: string; warehouseType: string; packageSpec: string; currentSafety: number } | null>(null);
@@ -66,9 +68,16 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
       if (filterWarehouse !== 'all' && i.warehouseType !== filterWarehouse) return false;
       if (filterPackage !== 'all' && i.packageSpec !== filterPackage) return false;
       if (filterStyleNo && !i.styleNo.toLowerCase().includes(filterStyleNo.toLowerCase())) return false;
+      if (filterLine !== 'all' && (i.lineId?.toString() || '') !== filterLine) return false;
       return true;
     });
-  }, [inventory, filterWarehouse, filterPackage, filterStyleNo]);
+  }, [inventory, filterWarehouse, filterPackage, filterStyleNo, filterLine]);
+
+  const inventoryLines = useMemo(() => { // 从库存中提取产线列表
+    const lineMap = new Map<string, string>();
+    inventory.forEach(i => { if (i.lineId && i.lineName) lineMap.set(i.lineId.toString(), i.lineName); });
+    return Array.from(lineMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [inventory]);
 
   const hasPendingStockIn = useMemo(() => { // 检查是否有待入库
     return lines.some(l => l.subLines?.some(sub => sub.currentStyle && sub.currentStyle !== '-' && (sub.exportCapacity || 0) > 0) || (l.currentStyle && l.currentStyle !== '-' && (l.exportCapacity || 0) > 0));
@@ -95,7 +104,7 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
     const { type, styleNo, warehouseType, packageSpec } = showStockModal;
     try {
       if (type === 'edit' && onUpdateStock) { await onUpdateStock(styleNo, stockForm.gradeA, stockForm.gradeB, warehouseType, packageSpec); toast.success(t('toast_stock_adjust_success')); }
-      else if (type === 'production' && onProductionIn) { await onProductionIn(styleNo, stockForm.quantity, stockForm.grade, warehouseType, packageSpec, showStockModal.lineId, showStockModal.subLineId); }
+      else if (type === 'production' && onProductionIn) { await onProductionIn(styleNo, stockForm.quantity, stockForm.grade, warehouseType, packageSpec, showStockModal.lineId, showStockModal.subLineId, showStockModal.lineName); }
       else if (type === 'in' && onStockIn) { await onStockIn(styleNo, stockForm.quantity, stockForm.grade, stockForm.source, stockForm.note, warehouseType, packageSpec); }
       else if (type === 'out' && onStockOut) { await onStockOut(styleNo, stockForm.quantity, stockForm.grade, stockForm.source, stockForm.note, warehouseType, packageSpec); }
       setShowStockModal(null);
@@ -158,11 +167,14 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
 
   const handleOpenProductionIn = (item: PendingItem) => {
     setStockForm({ ...stockForm, quantity: item.quantity, warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820 });
-    setShowStockModal({ type: 'production', styleNo: item.styleNo, warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, lineId: item.lineId, subLineId: item.subLineId, pendingQty: item.quantity });
+    setShowStockModal({ type: 'production', styleNo: item.styleNo, warehouseType: WarehouseType.GENERAL, packageSpec: PackageSpec.KG820, lineId: item.lineId, subLineId: item.subLineId, lineName: item.lineName, pendingQty: item.quantity });
   };
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* 库存可视化图表 */}
+      {mainTab === 'inventory' && <InventoryCharts inventory={inventory} />}
+
       {/* 主Tab切换 */}
       <div className="flex justify-between items-center">
         <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex">
@@ -195,10 +207,13 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
           filterWarehouse={filterWarehouse}
           filterPackage={filterPackage}
           filterStyleNo={filterStyleNo}
+          filterLine={filterLine}
+          inventoryLines={inventoryLines}
           exporting={exporting}
           onFilterWarehouseChange={setFilterWarehouse}
           onFilterPackageChange={setFilterPackage}
           onFilterStyleNoChange={setFilterStyleNo}
+          onFilterLineChange={setFilterLine}
           onOpenStockModal={handleOpenStockModal}
           onShowHistory={handleShowHistory}
           onOpenLockModal={handleOpenLockModal}
@@ -218,7 +233,7 @@ const WarehouseView: React.FC<WarehouseViewProps> = ({ orders, inventory, lines,
 
       {/* 盘点Tab */}
       {mainTab === 'inventory' && invSubTab === 'stocktake' && (
-        <StocktakeSection inventory={inventory} onUpdateStock={onUpdateStock} />
+        <StocktakeSection inventory={inventory} inventoryLines={inventoryLines} onUpdateStock={onUpdateStock} />
       )}
 
       {/* 装车任务模块 */}

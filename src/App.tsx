@@ -68,7 +68,7 @@ function App(): React.ReactElement {
     if (error) return <div className="bg-red-50 text-red-600 p-4 rounded-lg">Error: {error}</div>;
     return (
       <Suspense fallback={<PageLoader />}>
-        {activeTab === Tab.DASHBOARD && <Dashboard orders={orders} inventory={inventory} lines={lines} incidents={incidents} />}
+        {activeTab === Tab.DASHBOARD && <Dashboard orders={orders} inventory={inventory} lines={lines} incidents={incidents} onNavigate={(tab) => setActiveTab(tab as Tab)} />}
         {activeTab === Tab.ORDERS && <OrderManagement orders={orders} inventory={inventory} lines={lines} setOrders={setOrders} onAcknowledgeOrder={acknowledgeOrder} />}
         {activeTab === Tab.PRODUCTION && <ProductionControl lines={lines} styles={styles} onUpdateLine={updateLine} onAddLine={addLine} onRemoveLine={removeLine} onAddStyle={addStyle} onUpdateStyle={updateStyle} onRemoveStyle={removeStyle} />}
         {activeTab === Tab.WAREHOUSE && <WarehouseView orders={orders} inventory={inventory} lines={lines} incidents={incidents} onConfirmLoad={confirmLoad} onLogIncident={(inc: IncidentLog) => logIncident(inc)} onResolveIncident={resolveIncident} onDeleteIncident={removeIncident} onStockIn={stockIn} onStockOut={stockOut} onUpdateStock={updateStock} onGetTransactions={getTransactions} onProductionIn={productionIn} onSetSafetyStock={setSafetyStock} onLockStock={lockStock} onUnlockStock={unlockStock} />}
@@ -182,12 +182,12 @@ function App(): React.ReactElement {
                 </button>
               ))}
             </nav>
-            <div className={`mt-auto overflow-hidden transition-all duration-300 ${isFullscreen ? 'px-2 pb-4' : 'px-6 pb-6'}`}>
-              <div className={`bg-slate-800 rounded-xl transition-all duration-300 overflow-hidden ${isFullscreen ? 'p-2' : 'p-4'}`}>
-                <h4 className={`text-sm font-medium text-white transition-all duration-300 ${isFullscreen ? 'opacity-0 max-h-0 mb-0' : 'opacity-100 max-h-6 mb-1'}`}>{t('system_status')}</h4>
-                <div className={`flex items-center text-xs transition-all duration-300 ${isFullscreen ? 'justify-center' : ''} ${error ? 'text-red-400' : 'text-green-400'}`}>
-                  <span className={`w-2 h-2 rounded-full ${error ? 'bg-red-400' : 'bg-green-400 animate-pulse'}`}></span>
-                  <span className={`transition-all duration-300 ${isFullscreen ? 'opacity-0 w-0 ml-0' : 'opacity-100 w-auto ml-2'}`}>
+            <div className={`mt-auto overflow-hidden transition-[padding] duration-300 ${isFullscreen ? 'px-2 pb-4' : 'px-6 pb-6'}`}>
+              <div className={`bg-slate-800 rounded-xl transition-[padding] duration-300 overflow-hidden ${isFullscreen ? 'p-2' : 'p-4'}`}>
+                <h4 className={`text-sm font-medium text-white transition-[opacity,max-height,margin] duration-300 ${isFullscreen ? 'opacity-0 max-h-0 mb-0' : 'opacity-100 max-h-6 mb-1'}`}>{t('system_status')}</h4>
+                <div className={`flex items-center text-xs ${isFullscreen ? 'justify-center' : ''} ${error ? 'text-red-400' : 'text-green-400'}`}>
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${error ? 'bg-red-400' : 'bg-green-400 animate-pulse'}`}></span>
+                  <span className={`transition-[opacity,width,margin] duration-300 whitespace-nowrap overflow-hidden ${isFullscreen ? 'opacity-0 w-0 ml-0' : 'opacity-100 w-auto ml-2'}`}>
                     {error ? t('status_error') : lastSyncTime ? `${t('last_sync')}: ${lastSyncTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}` : t('status_synced')}
                   </span>
                 </div>

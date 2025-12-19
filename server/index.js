@@ -72,7 +72,12 @@ const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, ne
 
 // ========== 库存 API ==========
 app.get('/api/inventory', asyncHandler((req, res) => {
-  const rows = query('SELECT style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, current_stock as currentStock, grade_a as gradeA, grade_b as gradeB, stock_t_minus_1 as stockTMinus1, locked_for_today as lockedForToday, safety_stock as safetyStock, last_updated as lastUpdated FROM inventory');
+  const { lineId } = req.query; // 支持按产线筛选
+  let sql = 'SELECT style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, current_stock as currentStock, grade_a as gradeA, grade_b as gradeB, stock_t_minus_1 as stockTMinus1, locked_for_today as lockedForToday, safety_stock as safetyStock, last_updated as lastUpdated, line_id as lineId, line_name as lineName FROM inventory';
+  const params = [];
+  if (lineId) { sql += ' WHERE line_id = ?'; params.push(parseInt(lineId)); }
+  sql += ' ORDER BY style_no, line_id';
+  const rows = params.length > 0 ? queryWithParams(sql, params) : query(sql);
   res.json(rows.map(r => ({ ...r, warehouseType: r.warehouseType || 'general', packageSpec: r.packageSpec || '820kg', gradeA: r.gradeA || 0, gradeB: r.gradeB || 0, safetyStock: r.safetyStock || 0 })));
 }));
 
@@ -137,26 +142,35 @@ app.post('/api/inventory/:styleNo/unlock', asyncHandler((req, res) => {
   res.json({ success: true, locked: newLocked });
 }));
 
-// 入库（事务处理）
+// 入库（事务处理）- 支持产线关联
 app.post('/api/inventory/in', asyncHandler((req, res) => {
-  const { styleNo, warehouseType, packageSpec, quantity, grade, source, note, orderId } = req.body;
+  const { styleNo, warehouseType, packageSpec, quantity, grade, source, note, orderId, lineId, lineName } = req.body;
   if (!styleNo || !quantity) return res.status(400).json({ error: '款号和数量必填' });
   const wt = warehouseType || 'general';
   const ps = packageSpec || '820kg';
   const g = grade || 'A';
-  const existing = queryWithParams('SELECT current_stock as currentStock, grade_a as gradeA, grade_b as gradeB FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [styleNo, wt, ps])[0];
+  const lid = lineId || null;
+  const lname = lineName || null;
+  // 按(款号+仓库类型+包装规格+产线)查询
+  const existing = lid
+    ? queryWithParams('SELECT current_stock as currentStock, grade_a as gradeA, grade_b as gradeB FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [styleNo, wt, ps, lid])[0]
+    : queryWithParams('SELECT current_stock as currentStock, grade_a as gradeA, grade_b as gradeB FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [styleNo, wt, ps])[0];
   const newGradeA = (existing?.gradeA || 0) + (g === 'A' ? quantity : 0);
   const newGradeB = (existing?.gradeB || 0) + (g === 'B' ? quantity : 0);
   const newBalance = newGradeA + newGradeB;
   withTransaction(() => {
     if (existing) {
-      runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
+      if (lid) {
+        runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps, lid]);
+      } else {
+        runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
+      }
     } else {
-      runNoSave('INSERT INTO inventory (style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, last_updated) VALUES (?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, newBalance, newGradeA, newGradeB, new Date().toISOString()]);
+      runNoSave('INSERT INTO inventory (style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, last_updated, line_id, line_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, newBalance, newGradeA, newGradeB, new Date().toISOString(), lid, lname]);
     }
-    runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'IN', g, quantity, newBalance, source || null, note || null, orderId || null]);
+    runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'IN', g, quantity, newBalance, source || (lid ? `产线${lid}入库` : null), note || null, orderId || null]);
   });
-  res.json({ success: true, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB });
+  res.json({ success: true, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB, lineId: lid });
 }));
 
 // 批量入库
@@ -237,18 +251,29 @@ app.post('/api/inventory/batch-out', asyncHandler((req, res) => {
 
 // 单次盘点调整（优化：合并A/B等级调整为单次API调用）
 app.post('/api/inventory/adjust', asyncHandler((req, res) => {
-  const { styleNo, warehouseType, packageSpec, gradeA, gradeB, reason, operator } = req.body;
+  const { styleNo, warehouseType, packageSpec, gradeA, gradeB, reason, operator, lineId, lineName } = req.body;
   if (!styleNo) return res.status(400).json({ error: '款号必填' });
   const wt = warehouseType || 'general';
   const ps = packageSpec || '820kg';
-  const existing = queryWithParams('SELECT grade_a, grade_b FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [styleNo, wt, ps])[0];
+  const lid = lineId || null;
+  const lname = lineName || null;
+  // 按产线查询
+  const existing = lid
+    ? queryWithParams('SELECT grade_a, grade_b, line_id, line_name FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [styleNo, wt, ps, lid])[0]
+    : queryWithParams('SELECT grade_a, grade_b, line_id, line_name FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [styleNo, wt, ps])[0];
   if (!existing) return res.status(404).json({ error: '库存记录不存在' });
   const newGradeA = gradeA !== undefined ? gradeA : existing.grade_a;
   const newGradeB = gradeB !== undefined ? gradeB : existing.grade_b;
   const newBalance = newGradeA + newGradeB;
+  const recordLineId = existing.line_id || lid;
+  const recordLineName = existing.line_name || lname;
   withTransaction(() => {
-    runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
-    runNoSave('INSERT INTO inventory_audit_logs (style_no, warehouse_type, package_spec, action, before_grade_a, before_grade_b, after_grade_a, after_grade_b, reason, operator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'adjust', existing.grade_a, existing.grade_b, newGradeA, newGradeB, reason || '盘点调整', operator || 'system']);
+    if (lid) {
+      runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps, lid]);
+    } else {
+      runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
+    }
+    runNoSave('INSERT INTO inventory_audit_logs (style_no, warehouse_type, package_spec, line_id, line_name, action, before_grade_a, before_grade_b, after_grade_a, after_grade_b, reason, operator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, recordLineId, recordLineName, 'adjust', existing.grade_a, existing.grade_b, newGradeA, newGradeB, reason || '盘点调整', operator || 'system']);
     // 记录流水（差异部分，使用ADJUST_IN/ADJUST_OUT区分盘点调整）
     const diffA = newGradeA - existing.grade_a;
     const diffB = newGradeB - existing.grade_b;
@@ -281,18 +306,19 @@ app.get('/api/inventory/transactions', asyncHandler((req, res) => {
 
 // 审计日志查询
 app.get('/api/inventory/audit-logs', asyncHandler((req, res) => {
-  const { styleNo, warehouseType, packageSpec, action, page = 1, pageSize = 50 } = req.query;
+  const { styleNo, warehouseType, packageSpec, action, lineId, page = 1, pageSize = 50 } = req.query;
   const conditions = [];
   const params = [];
   if (styleNo) { conditions.push('style_no = ?'); params.push(styleNo); }
   if (warehouseType) { conditions.push('warehouse_type = ?'); params.push(warehouseType); }
   if (packageSpec) { conditions.push('package_spec = ?'); params.push(packageSpec); }
   if (action) { conditions.push('action = ?'); params.push(action); }
+  if (lineId) { conditions.push('line_id = ?'); params.push(parseInt(lineId)); }
   const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
   const countSql = `SELECT COUNT(*) as total FROM inventory_audit_logs${whereClause}`;
   const total = (params.length > 0 ? queryWithParams(countSql, params) : query(countSql))[0]?.total || 0;
   const offset = (parseInt(page) - 1) * parseInt(pageSize);
-  const dataSql = `SELECT id, style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, action, before_grade_a as beforeGradeA, before_grade_b as beforeGradeB, after_grade_a as afterGradeA, after_grade_b as afterGradeB, reason, operator, created_at as createdAt FROM inventory_audit_logs${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+  const dataSql = `SELECT id, style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, line_id as lineId, line_name as lineName, action, before_grade_a as beforeGradeA, before_grade_b as beforeGradeB, after_grade_a as afterGradeA, after_grade_b as afterGradeB, reason, operator, created_at as createdAt FROM inventory_audit_logs${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
   const rows = queryWithParams(dataSql, [...params, parseInt(pageSize), offset]);
   res.json({ data: rows, total, page: parseInt(page), pageSize: parseInt(pageSize), totalPages: Math.ceil(total / parseInt(pageSize)) });
 }));

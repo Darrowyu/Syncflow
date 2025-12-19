@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Order, InventoryItem } from '../../types';
 import { Printer, X } from 'lucide-react';
 
@@ -10,15 +10,55 @@ interface PrintPackingListProps {
 
 const PrintPackingList: React.FC<PrintPackingListProps> = ({ order, inventory, onClose }) => {
     const stock = inventory?.find(i => i.styleNo === order.styleNo);
+    const printRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = () => {
-        window.print();
+        if (!printRef.current) return;
+
+        const printContent = printRef.current.innerHTML;
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        if (!printWindow) return;
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>装箱单 - ${order.client}</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20mm; }
+                    .title { text-align: center; margin-bottom: 24px; }
+                    .title h1 { font-size: 24px; font-weight: bold; color: #1e293b; }
+                    .title p { font-size: 12px; color: #64748b; margin-top: 4px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+                    td { border: 1px solid #cbd5e1; padding: 8px 12px; font-size: 14px; }
+                    .label { background: #f8fafc; font-weight: 500; width: 100px; }
+                    .bold { font-weight: bold; }
+                    .large { font-size: 18px; }
+                    .mono { font-family: monospace; }
+                    .section { border: 1px solid #cbd5e1; padding: 12px; margin-bottom: 16px; }
+                    .section-title { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+                    .section-bg { background: #f8fafc; }
+                    .signatures { display: flex; justify-content: space-between; margin-top: 32px; padding-top: 16px; border-top: 1px dashed #cbd5e1; }
+                    .sign-box { text-align: center; flex: 1; }
+                    .sign-label { font-size: 12px; color: #64748b; margin-bottom: 24px; }
+                    .sign-line { border-bottom: 1px solid #94a3b8; margin: 0 16px; }
+                    @media print { body { padding: 15mm; } }
+                </style>
+            </head>
+            <body>
+                ${printContent}
+                <script>window.onload = function() { window.print(); window.close(); }</script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 no-print">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl">
-                <div className="flex items-center justify-between p-4 border-b no-print">
+                <div className="flex items-center justify-between p-4 border-b">
                     <h3 className="font-bold text-lg text-slate-800">装箱单预览</h3>
                     <div className="flex space-x-2">
                         <button onClick={handlePrint} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
@@ -27,87 +67,79 @@ const PrintPackingList: React.FC<PrintPackingListProps> = ({ order, inventory, o
                         <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600"><X size={20} /></button>
                     </div>
                 </div>
-                <div className="p-6 print-content" id="print-area">
-                    <div className="text-center mb-6">
+                <div className="p-6" ref={printRef}>
+                    <div className="title text-center mb-6">
                         <h1 className="text-2xl font-bold text-slate-900">装 箱 单</h1>
                         <p className="text-sm text-slate-500 mt-1">PACKING LIST</p>
                     </div>
                     <table className="w-full border-collapse border border-slate-300 text-sm mb-4">
                         <tbody>
                             <tr>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium w-28">客户</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium w-28">客户</td>
                                 <td className="border border-slate-300 px-3 py-2">{order.client}</td>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium w-28">日期</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium w-28">日期</td>
                                 <td className="border border-slate-300 px-3 py-2">{order.date}</td>
                             </tr>
                             <tr>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium">款号</td>
-                                <td className="border border-slate-300 px-3 py-2 font-mono font-bold">{order.styleNo}</td>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium">PI号</td>
-                                <td className="border border-slate-300 px-3 py-2 font-mono">{order.piNo}</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium">款号</td>
+                                <td className="mono bold border border-slate-300 px-3 py-2 font-mono font-bold">{order.styleNo}</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium">PI号</td>
+                                <td className="mono border border-slate-300 px-3 py-2 font-mono">{order.piNo}</td>
                             </tr>
                             <tr>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium">提单号</td>
-                                <td className="border border-slate-300 px-3 py-2 font-mono">{order.blNo || '-'}</td>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium">港口</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium">提单号</td>
+                                <td className="mono border border-slate-300 px-3 py-2 font-mono">{order.blNo || '-'}</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium">港口</td>
                                 <td className="border border-slate-300 px-3 py-2">{order.port}</td>
                             </tr>
                             <tr>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium">总重量</td>
-                                <td className="border border-slate-300 px-3 py-2 font-bold text-lg">{order.totalTons} 吨</td>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium">柜数</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium">总重量</td>
+                                <td className="bold large border border-slate-300 px-3 py-2 font-bold text-lg">{order.totalTons} 吨</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium">柜数</td>
                                 <td className="border border-slate-300 px-3 py-2">{order.containers} 柜</td>
                             </tr>
                             <tr>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium">包数/柜</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium">包数/柜</td>
                                 <td className="border border-slate-300 px-3 py-2">{order.packagesPerContainer} 包</td>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium">总包数</td>
-                                <td className="border border-slate-300 px-3 py-2 font-bold">{order.containers * order.packagesPerContainer} 包</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium">总包数</td>
+                                <td className="bold border border-slate-300 px-3 py-2 font-bold">{order.containers * order.packagesPerContainer} 包</td>
                             </tr>
                             <tr>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium">贸易类型</td>
-                                <td className="border border-slate-300 px-3 py-2">{order.tradeType}</td>
-                                <td className="border border-slate-300 px-3 py-2 bg-slate-50 font-medium">对接人</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium">贸易类型</td>
+                                <td className="border border-slate-300 px-3 py-2">{order.tradeType === 'Bonded' ? '保税' : '一般贸易'}</td>
+                                <td className="label border border-slate-300 px-3 py-2 bg-slate-50 font-medium">对接人</td>
                                 <td className="border border-slate-300 px-3 py-2">{order.contactPerson}</td>
                             </tr>
                         </tbody>
                     </table>
                     {order.requirements && (
-                        <div className="border border-slate-300 p-3 mb-4">
-                            <p className="text-xs text-slate-500 mb-1">装货要求</p>
+                        <div className="section border border-slate-300 p-3 mb-4">
+                            <p className="section-title text-xs text-slate-500 mb-1">装货要求</p>
                             <p className="text-sm">{order.requirements}</p>
                         </div>
                     )}
                     {stock && (
-                        <div className="border border-slate-300 p-3 mb-4 bg-slate-50">
-                            <p className="text-xs text-slate-500 mb-1">库存信息</p>
+                        <div className="section section-bg border border-slate-300 p-3 mb-4 bg-slate-50">
+                            <p className="section-title text-xs text-slate-500 mb-1">库存信息</p>
                             <p className="text-sm">当前库存: {stock.currentStock}t (优等品: {stock.gradeA}t / 一等品: {stock.gradeB}t)</p>
                         </div>
                     )}
-                    <div className="grid grid-cols-3 gap-4 mt-8 pt-4 border-t border-dashed border-slate-300">
-                        <div className="text-center">
-                            <p className="text-xs text-slate-500 mb-6">仓库签字</p>
-                            <div className="border-b border-slate-400 mx-4"></div>
+                    <div className="signatures grid grid-cols-3 gap-4 mt-8 pt-4 border-t border-dashed border-slate-300">
+                        <div className="sign-box text-center">
+                            <p className="sign-label text-xs text-slate-500 mb-6">仓库签字</p>
+                            <div className="sign-line border-b border-slate-400 mx-4"></div>
                         </div>
-                        <div className="text-center">
-                            <p className="text-xs text-slate-500 mb-6">车间签字</p>
-                            <div className="border-b border-slate-400 mx-4"></div>
+                        <div className="sign-box text-center">
+                            <p className="sign-label text-xs text-slate-500 mb-6">车间签字</p>
+                            <div className="sign-line border-b border-slate-400 mx-4"></div>
                         </div>
-                        <div className="text-center">
-                            <p className="text-xs text-slate-500 mb-6">日期</p>
-                            <div className="border-b border-slate-400 mx-4"></div>
+                        <div className="sign-box text-center">
+                            <p className="sign-label text-xs text-slate-500 mb-6">日期</p>
+                            <div className="sign-line border-b border-slate-400 mx-4"></div>
                         </div>
                     </div>
                 </div>
             </div>
-            <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          #print-area, #print-area * { visibility: visible; }
-          #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20mm; }
-          .no-print { display: none !important; }
-        }
-      `}</style>
         </div>
     );
 };

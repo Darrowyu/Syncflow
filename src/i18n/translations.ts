@@ -151,7 +151,15 @@ export const translations = {
     advanced_filter: "Advanced Filter", filter_date_from: "From", filter_date_to: "To", filter_client: "Client",
     filter_style: "Style", filter_port: "Port", filter_status: "Status", filter_trade_type: "Trade Type",
     filter_contact: "Contact", clear_filters: "Clear All", filter_results: "results", filter_all: "All",
-    filter_panel_title: "Filter Conditions"
+    filter_panel_title: "Filter Conditions",
+    filter_line: "Line", filter_line_all: "All Lines",
+    btn_add_order: "New Order", create_order: "Create Order",
+    // Dashboard enhancements
+    quick_actions: "Quick Actions", line_status_panel: "Line Status", fulfillment_alerts: "Fulfillment Alerts",
+    low_stock_warning: "Low Stock Warning", vs_yesterday: "vs Yesterday", total_export_capacity: "Export Capacity",
+    orders_by_line: "Orders by Line", no_line_assigned: "Unassigned", click_to_jump: "Click to jump",
+    fulfillment_rate: "Fulfillment", below_threshold: "Below Threshold", all_fulfilled: "All Fulfilled",
+    line_overview: "Line Overview", capacity_utilization: "Utilization", today_vs_yesterday: "Today vs Yesterday"
   },
   zh: {
     nav_dashboard: "仪表盘", nav_orders: "订单管理", nav_production: "排产控制", nav_warehouse: "仓库作业", nav_help: "使用指南",
@@ -302,7 +310,15 @@ export const translations = {
     advanced_filter: "高级筛选", filter_date_from: "开始日期", filter_date_to: "结束日期", filter_client: "客户",
     filter_style: "款号", filter_port: "港口", filter_status: "状态", filter_trade_type: "贸易类型",
     filter_contact: "对接人", clear_filters: "清除筛选", filter_results: "条结果", filter_all: "全部",
-    filter_panel_title: "筛选条件"
+    filter_panel_title: "筛选条件",
+    filter_line: "产线", filter_line_all: "全部产线",
+    btn_add_order: "新建订单", create_order: "新建订单",
+    // 仪表盘增强
+    quick_actions: "快捷操作", line_status_panel: "产线状态", fulfillment_alerts: "满足率预警",
+    low_stock_warning: "库存预警", vs_yesterday: "较昨日", total_export_capacity: "外贸产能",
+    orders_by_line: "产线订单分布", no_line_assigned: "未分配", click_to_jump: "点击跳转",
+    fulfillment_rate: "满足率", below_threshold: "低于阈值", all_fulfilled: "全部满足",
+    line_overview: "产线概览", capacity_utilization: "产能利用率", today_vs_yesterday: "今日较昨日"
   }
 };
 

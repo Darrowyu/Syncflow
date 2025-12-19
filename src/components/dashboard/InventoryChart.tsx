@@ -1,9 +1,35 @@
-import React, { useState, useMemo, memo } from 'react';
+import React, { useState, useMemo, memo, useCallback, useRef, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { BarChart3, LineChartIcon, PieChartIcon, TrendingDown } from 'lucide-react';
 import { useLanguage } from '../../i18n';
 
 type ChartType = 'bar' | 'line' | 'pie';
+
+// 防抖的ResponsiveContainer，避免侧边栏动画时频繁重渲染
+const DebouncedResponsiveContainer: React.FC<{ children: React.ReactNode; height: number }> = memo(({ children, height }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(400);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) setWidth(containerRef.current.offsetWidth);
+    };
+    updateWidth();
+    const observer = new ResizeObserver(() => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(updateWidth, 150); // 150ms防抖
+    });
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => { observer.disconnect(); if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []);
+
+  return (
+    <div ref={containerRef} style={{ width: '100%', height }}>
+      {width > 0 && <ResponsiveContainer width={width} height={height}>{children}</ResponsiveContainer>}
+    </div>
+  );
+});
 
 interface ChartDataItem {
   name: string;
@@ -35,10 +61,10 @@ const InventoryChart: React.FC<InventoryChartProps> = memo(({ data }) => {
   // 饼图数据
   const pieData = useMemo(() => filteredData.map(d => ({ name: d.name, value: d.Demand })), [filteredData]);
 
-  // 自定义Tooltip
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  // 自定义Tooltip - 使用useCallback避免重复创建
+  const CustomTooltip = useCallback(({ active, payload, label }: { active?: boolean; payload?: Array<{ payload: ChartDataItem }>; label?: string }) => {
     if (!active || !payload?.length) return null;
-    const item = filteredData.find(d => d.name === label);
+    const item = payload[0]?.payload;
     if (!item) return null;
     const gap = item.Demand - item.TotalAvailable;
     const isShortage = gap > 0;
@@ -59,7 +85,7 @@ const InventoryChart: React.FC<InventoryChartProps> = memo(({ data }) => {
         </div>
       </div>
     );
-  };
+  }, [t]);
 
   return (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
@@ -79,11 +105,11 @@ const InventoryChart: React.FC<InventoryChartProps> = memo(({ data }) => {
         </div>
       </div>
 
-      <div className="h-[240px] min-w-0">
+      <div className="h-[240px] min-w-0" style={{ contain: 'layout' }}>
         {filteredData.length === 0 ? (
           <div className="h-full flex items-center justify-center text-slate-400 dark:text-slate-500">{t('no_data')}</div>
         ) : chartType === 'bar' ? (
-          <ResponsiveContainer width="100%" height={240} minWidth={200}>
+          <DebouncedResponsiveContainer height={240}>
             <BarChart data={filteredData} margin={{ top: 10, right: 20, left: 0, bottom: 20 }} barGap={4}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" strokeOpacity={0.5} />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} dy={8} interval={0} angle={filteredData.length > 5 ? -20 : 0} textAnchor={filteredData.length > 5 ? 'end' : 'middle'} />
@@ -93,9 +119,9 @@ const InventoryChart: React.FC<InventoryChartProps> = memo(({ data }) => {
               <Bar dataKey="Demand" fill="#ef4444" radius={[4, 4, 0, 0]} name="Demand" maxBarSize={40} />
               <Bar dataKey="TotalAvailable" fill="#10b981" radius={[4, 4, 0, 0]} name="TotalAvailable" maxBarSize={40} />
             </BarChart>
-          </ResponsiveContainer>
+          </DebouncedResponsiveContainer>
         ) : chartType === 'line' ? (
-          <ResponsiveContainer width="100%" height={240} minWidth={200}>
+          <DebouncedResponsiveContainer height={240}>
             <LineChart data={filteredData} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" strokeOpacity={0.5} />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} dy={8} />
@@ -105,18 +131,18 @@ const InventoryChart: React.FC<InventoryChartProps> = memo(({ data }) => {
               <Line type="monotone" dataKey="Demand" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} activeDot={{ r: 6 }} name="Demand" />
               <Line type="monotone" dataKey="TotalAvailable" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', r: 4 }} activeDot={{ r: 6 }} name="TotalAvailable" />
             </LineChart>
-          </ResponsiveContainer>
+          </DebouncedResponsiveContainer>
         ) : (
           <div className="flex h-full">
             <div className="flex-1 min-w-0">
-              <ResponsiveContainer width="100%" height={240} minWidth={100}>
+              <DebouncedResponsiveContainer height={240}>
                 <PieChart>
                   <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3} dataKey="value" label={false}>
                     {pieData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />)}
                   </Pie>
                   <Tooltip formatter={(value: number) => [`${value} t`, t('order_demand')]} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', backgroundColor: '#1e293b', color: '#f1f5f9' }} itemStyle={{ color: '#f1f5f9' }} labelStyle={{ color: '#f1f5f9', fontWeight: 'bold' }} />
                 </PieChart>
-              </ResponsiveContainer>
+              </DebouncedResponsiveContainer>
             </div>
             <div className="w-32 flex flex-col justify-center space-y-2 pl-2">
               {pieData.map((item, index) => (

@@ -22,6 +22,8 @@ export interface InventoryItem {
   lockedForToday: number;
   safetyStock?: number; // 安全库存阈值
   lastUpdated?: string; // 最后更新时间
+  lineId?: number; // 产线ID（可选，空表示总仓或历史数据）
+  lineName?: string; // 产线名称（冗余存储，方便显示）
 }
 
 export interface InventoryAlert {
@@ -48,6 +50,8 @@ export interface InventoryAuditLog {
   styleNo: string;
   warehouseType: string;
   packageSpec: string;
+  lineId?: number;
+  lineName?: string;
   action: 'adjust' | 'lock' | 'unlock';
   beforeGradeA: number;
   beforeGradeB: number;

@@ -1,4 +1,4 @@
--- 库存表 (按款号+仓库类型+包装规格唯一)
+-- 库存表 (按款号+仓库类型+包装规格+产线唯一)
 CREATE TABLE IF NOT EXISTS inventory (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   style_no TEXT NOT NULL,
@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS inventory (
   locked_for_today REAL DEFAULT 0,
   safety_stock REAL DEFAULT 0,
   last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(style_no, warehouse_type, package_spec)
+  line_id INTEGER,
+  line_name TEXT,
+  UNIQUE(style_no, warehouse_type, package_spec, line_id)
 );
 
 -- 库存盘点审计日志表
@@ -20,6 +22,8 @@ CREATE TABLE IF NOT EXISTS inventory_audit_logs (
   style_no TEXT NOT NULL,
   warehouse_type TEXT DEFAULT 'general',
   package_spec TEXT DEFAULT '820kg',
+  line_id INTEGER,
+  line_name TEXT,
   action TEXT NOT NULL,
   before_grade_a REAL DEFAULT 0,
   before_grade_b REAL DEFAULT 0,
@@ -129,6 +133,7 @@ CREATE INDEX IF NOT EXISTS idx_inventory_transactions_style_no ON inventory_tran
 CREATE INDEX IF NOT EXISTS idx_inventory_transactions_created_at ON inventory_transactions(created_at);
 CREATE INDEX IF NOT EXISTS idx_inventory_transactions_order_id ON inventory_transactions(order_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_audit_logs_style_no ON inventory_audit_logs(style_no);
+CREATE INDEX IF NOT EXISTS idx_inventory_audit_logs_line_id ON inventory_audit_logs(line_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_safety_stock ON inventory(safety_stock);
 CREATE INDEX IF NOT EXISTS idx_incidents_style_no ON incidents(style_no);
 CREATE INDEX IF NOT EXISTS idx_style_change_logs_line_id ON style_change_logs(line_id);

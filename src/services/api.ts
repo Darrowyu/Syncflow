@@ -35,11 +35,11 @@ export const invalidateCache = (prefix?: string) => cacheClear(prefix);
 // 库存
 export const fetchInventory = () => cachedRequest('inventory', () => request<InventoryItem[]>('/inventory'));
 export const updateInventory = (styleNo: string, data: Partial<InventoryItem> & { reason?: string; operator?: string }) => request<ApiSuccess>(`/inventory/${styleNo}`, { method: 'PUT', body: JSON.stringify(data) });
-export const inventoryIn = (data: { styleNo: string; warehouseType?: string; packageSpec?: string; quantity: number; grade?: string; source?: string; note?: string; orderId?: string }) => request<InventoryBalanceResponse>('/inventory/in', { method: 'POST', body: JSON.stringify(data) });
+export const inventoryIn = (data: { styleNo: string; warehouseType?: string; packageSpec?: string; quantity: number; grade?: string; source?: string; note?: string; orderId?: string; lineId?: number; lineName?: string }) => request<InventoryBalanceResponse>('/inventory/in', { method: 'POST', body: JSON.stringify(data) });
 export const inventoryOut = (data: { styleNo: string; warehouseType?: string; packageSpec?: string; quantity: number; grade?: string; source?: string; note?: string; orderId?: string }) => request<InventoryBalanceResponse>('/inventory/out', { method: 'POST', body: JSON.stringify(data) });
 export const inventoryBatchIn = (items: BatchInventoryItem[]) => request<BatchInventoryResponse>('/inventory/batch-in', { method: 'POST', body: JSON.stringify({ items }) });
 export const inventoryBatchOut = (items: BatchInventoryItem[]) => request<BatchInventoryResponse>('/inventory/batch-out', { method: 'POST', body: JSON.stringify({ items }) });
-export const inventoryAdjust = (data: { styleNo: string; warehouseType?: string; packageSpec?: string; gradeA?: number; gradeB?: number; reason?: string; operator?: string }) => request<InventoryBalanceResponse>('/inventory/adjust', { method: 'POST', body: JSON.stringify(data) });
+export const inventoryAdjust = (data: { styleNo: string; warehouseType?: string; packageSpec?: string; gradeA?: number; gradeB?: number; reason?: string; operator?: string; lineId?: number; lineName?: string }) => request<InventoryBalanceResponse>('/inventory/adjust', { method: 'POST', body: JSON.stringify(data) });
 export const fetchInventoryAlerts = () => request<InventoryAlert[]>('/inventory/alerts');
 export const setSafetyStock = (styleNo: string, data: { warehouseType?: string; packageSpec?: string; safetyStock: number }) => request<ApiSuccess>(`/inventory/${styleNo}/safety-stock`, { method: 'PUT', body: JSON.stringify(data) });
 export const lockInventory = (styleNo: string, data: { warehouseType?: string; packageSpec?: string; quantity: number; reason?: string; operator?: string }) => request<{ success: true; locked: number }>(`/inventory/${styleNo}/lock`, { method: 'POST', body: JSON.stringify(data) });
@@ -57,12 +57,13 @@ export const fetchInventoryTransactions = (params?: TransactionQueryParams) => {
   const query = searchParams.toString();
   return request<PaginatedTransactions>(`/inventory/transactions${query ? `?${query}` : ''}`);
 };
-export const fetchInventoryAuditLogs = (params?: { styleNo?: string; warehouseType?: string; packageSpec?: string; action?: string; page?: number; pageSize?: number }) => {
+export const fetchInventoryAuditLogs = (params?: { styleNo?: string; warehouseType?: string; packageSpec?: string; action?: string; lineId?: number; page?: number; pageSize?: number }) => {
   const searchParams = new URLSearchParams();
   if (params?.styleNo) searchParams.append('styleNo', params.styleNo);
   if (params?.warehouseType) searchParams.append('warehouseType', params.warehouseType);
   if (params?.packageSpec) searchParams.append('packageSpec', params.packageSpec);
   if (params?.action) searchParams.append('action', params.action);
+  if (params?.lineId) searchParams.append('lineId', params.lineId.toString());
   if (params?.page) searchParams.append('page', params.page.toString());
   if (params?.pageSize) searchParams.append('pageSize', params.pageSize.toString());
   const query = searchParams.toString();

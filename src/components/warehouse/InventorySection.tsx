@@ -63,10 +63,13 @@ interface InventorySectionProps {
   filterWarehouse: string;
   filterPackage: string;
   filterStyleNo: string;
+  filterLine: string;
+  inventoryLines: { id: string; name: string }[];
   exporting: boolean;
   onFilterWarehouseChange: (v: string) => void;
   onFilterPackageChange: (v: string) => void;
   onFilterStyleNoChange: (v: string) => void;
+  onFilterLineChange: (v: string) => void;
   onOpenStockModal: (type: 'in' | 'out' | 'edit' | 'production', styleNo: string, warehouseType?: string, packageSpec?: string) => void;
   onShowHistory: (styleNo: string, warehouseType?: string, packageSpec?: string) => void;
   onOpenLockModal: (item: InventoryItem) => void;
@@ -86,8 +89,8 @@ interface InventorySectionProps {
 const PAGE_SIZE = 20;
 
 const InventorySection: React.FC<InventorySectionProps> = ({
-  inventory, lines, filteredInventory, filterWarehouse, filterPackage, filterStyleNo, exporting,
-  onFilterWarehouseChange, onFilterPackageChange, onFilterStyleNoChange,
+  inventory, lines, filteredInventory, filterWarehouse, filterPackage, filterStyleNo, filterLine, inventoryLines, exporting,
+  onFilterWarehouseChange, onFilterPackageChange, onFilterStyleNoChange, onFilterLineChange,
   onOpenStockModal, onShowHistory, onOpenLockModal, onOpenSafetyModal, onOpenAuditLogs, onExport, onOpenProductionIn, onSetSafetyStock,
   onStockIn, onStockOut, onUpdateStock, onGetTransactions, onLockStock, onUnlockStock
 }) => {
@@ -98,7 +101,7 @@ const InventorySection: React.FC<InventorySectionProps> = ({
   const totalPages = Math.ceil(filteredInventory.length / PAGE_SIZE);
   const pagedInventory = React.useMemo(() => filteredInventory.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filteredInventory, page]);
 
-  React.useEffect(() => { setPage(1); }, [filterWarehouse, filterPackage, filterStyleNo]);
+  React.useEffect(() => { setPage(1); }, [filterWarehouse, filterPackage, filterStyleNo, filterLine]);
 
   const pendingStockIn = React.useMemo(() => { // 计算待入库队列
     const pending: PendingItem[] = [];
@@ -166,13 +169,13 @@ const InventorySection: React.FC<InventorySectionProps> = ({
         </div>
       )}
 
-      {/* 库存管理 - 移动端卡片视图 */}
-      {isMobile ? (
+      {/* 库存管理 - 只在非待入库模式显示 (lines为空时) */}
+      {lines.length === 0 && (isMobile ? (
         <div className="space-y-3">
           <InventoryAlerts inventory={inventory} onSetSafetyStock={onSetSafetyStock} />
           <div className="bg-emerald-50 dark:bg-emerald-900/30 px-4 py-3 rounded-xl flex items-center justify-between">
             <div className="flex items-center">
-              <Package className="text-emerald-600 dark:text-emerald-400 mr-2" size={18}/><h3 className="font-semibold text-emerald-900 dark:text-emerald-100 text-sm">{t('inv_title')}</h3>
+              <Package className="text-emerald-600 dark:text-emerald-400 mr-2" size={18} /><h3 className="font-semibold text-emerald-900 dark:text-emerald-100 text-sm">{t('inv_title')}</h3>
               <span className="ml-2 bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs px-1.5 py-0.5 rounded-full font-bold">{filteredInventory.length}</span>
             </div>
             <Filter size={14} className="text-emerald-600" />
@@ -190,17 +193,24 @@ const InventorySection: React.FC<InventorySectionProps> = ({
                 {PACKAGE_SPECS.map(ps => <option key={ps} value={ps}>{ps}</option>)}
               </select>
             </div>
+            {inventoryLines.length > 0 && (
+              <select value={filterLine} onChange={e => onFilterLineChange(e.target.value)} className="w-full text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-800">
+                <option value="all">{t('filter_line_all')}</option>
+                {inventoryLines.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            )}
           </div>
           {filteredInventory.length === 0 && <div className="text-center py-8 text-slate-400">{t('inv_no_data')}</div>}
           {filteredInventory.map(item => {
-            const key = `${item.styleNo}-${item.warehouseType}-${item.packageSpec}`;
+            const key = `${item.styleNo}-${item.warehouseType}-${item.packageSpec}-${item.lineId || 'noLine'}`;
             return (
               <div key={key} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{item.styleNo}</span>
                   <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{item.currentStock.toFixed(1)}t</span>
                 </div>
-                <div className="flex gap-1 mb-2">
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {item.lineName && <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">{item.lineName}</span>}
                   <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{item.warehouseType === WarehouseType.BONDED ? t('wh_bonded') : t('wh_general')}</span>
                   <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{item.packageSpec}</span>
                 </div>
@@ -230,7 +240,7 @@ const InventorySection: React.FC<InventorySectionProps> = ({
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
             <div className="bg-emerald-50 dark:bg-emerald-900/30 px-6 py-4 border-b border-emerald-100 dark:border-emerald-800 flex items-center justify-between">
               <div className="flex items-center">
-                <Package className="text-emerald-600 dark:text-emerald-400 mr-2" size={20}/><h3 className="font-semibold text-emerald-900 dark:text-emerald-100">{t('inv_title')}</h3>
+                <Package className="text-emerald-600 dark:text-emerald-400 mr-2" size={20} /><h3 className="font-semibold text-emerald-900 dark:text-emerald-100">{t('inv_title')}</h3>
                 <span className="ml-2 bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs px-2 py-0.5 rounded-full font-bold">{filteredInventory.length}</span>
               </div>
               <div className="flex gap-2">
@@ -244,6 +254,12 @@ const InventorySection: React.FC<InventorySectionProps> = ({
                   <option value="all">{t('pkg_all')}</option>
                   {PACKAGE_SPECS.map(ps => <option key={ps} value={ps}>{ps}</option>)}
                 </select>
+                {inventoryLines.length > 0 && (
+                  <select value={filterLine} onChange={e => onFilterLineChange(e.target.value)} className="text-sm border border-emerald-200 dark:border-emerald-700 rounded-lg px-3 py-1.5 bg-white dark:bg-slate-800">
+                    <option value="all">{t('filter_line_all')}</option>
+                    {inventoryLines.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </select>
+                )}
                 <button onClick={onOpenAuditLogs} className="flex items-center px-3 py-1.5 text-sm border border-emerald-200 dark:border-emerald-700 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" title={t('inv_audit_log')}><History size={14} className="mr-1" />{t('inv_audit_log')}</button>
                 <button onClick={onExport} disabled={exporting} className="flex items-center px-3 py-1.5 text-sm border border-emerald-200 dark:border-emerald-700 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-50" title={t('btn_export')}><Package size={14} className="mr-1" />{exporting ? t('inv_exporting') : t('btn_export')}</button>
               </div>
@@ -253,6 +269,7 @@ const InventorySection: React.FC<InventorySectionProps> = ({
                 <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-medium border-b dark:border-slate-700">
                   <tr>
                     <th className="px-4 py-3 text-left">{t('table_style')}</th>
+                    <th className="px-4 py-3 text-left">{t('inv_line_source')}</th>
                     <th className="px-4 py-3 text-left">{t('wh_type')}</th>
                     <th className="px-4 py-3 text-left">{t('pkg_spec')}</th>
                     <th className="px-4 py-3 text-right">{t('grade_a')}</th>
@@ -262,12 +279,13 @@ const InventorySection: React.FC<InventorySectionProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {pagedInventory.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">{t('inv_no_data')}</td></tr>}
+                  {pagedInventory.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">{t('inv_no_data')}</td></tr>}
                   {pagedInventory.map(item => {
-                    const key = `${item.styleNo}-${item.warehouseType}-${item.packageSpec}`;
+                    const key = `${item.styleNo}-${item.warehouseType}-${item.packageSpec}-${item.lineId || 'noLine'}`;
                     return (
                       <tr key={key} className="hover:bg-slate-50 dark:hover:bg-slate-700">
                         <td className="px-4 py-3 font-mono font-medium text-slate-800 dark:text-slate-100">{item.styleNo}</td>
+                        <td className="px-4 py-3">{item.lineName ? <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">{item.lineName}</span> : <span className="text-slate-400">-</span>}</td>
                         <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded ${item.warehouseType === WarehouseType.BONDED ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>{item.warehouseType === WarehouseType.BONDED ? t('wh_bonded') : t('wh_general')}</span></td>
                         <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">{item.packageSpec}</span></td>
                         <td className="px-4 py-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{(item.gradeA || 0).toFixed(1)}t</td>
@@ -298,7 +316,7 @@ const InventorySection: React.FC<InventorySectionProps> = ({
             )}
           </div>
         </>
-      )}
+      ))}
     </>
   );
 };

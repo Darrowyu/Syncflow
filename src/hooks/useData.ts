@@ -13,7 +13,7 @@ const mapOrder = (o: any): Order => ({
 });
 
 const mapLine = (l: any): ProductLine => ({ ...l, status: l.status as LineStatus });
-const inventoryKey = (styleNo: string, wt?: string, ps?: string): string => `${styleNo}-${wt || 'general'}-${ps || '820kg'}`; // 库存唯一标识
+const inventoryKey = (styleNo: string, wt?: string, ps?: string, lineId?: number): string => `${styleNo}-${wt || 'general'}-${ps || '820kg'}-${lineId || 'noLine'}`; // 库存唯一标识（含产线）
 
 export function useData() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -217,11 +217,11 @@ export function useData() {
     } catch (e) { toast.error((e as Error).message); throw e; }
   }, []);
 
-  const updateStock = useCallback(async (styleNo: string, newGradeA: number, newGradeB: number, warehouseType?: string, packageSpec?: string, reason?: string) => {
-    const key = inventoryKey(styleNo, warehouseType, packageSpec);
+  const updateStock = useCallback(async (styleNo: string, newGradeA: number, newGradeB: number, warehouseType?: string, packageSpec?: string, reason?: string, lineId?: number, lineName?: string) => {
+    const key = `${styleNo}-${warehouseType || 'general'}-${packageSpec || '820kg'}-${lineId || 'noLine'}`;
     try {
-      const res = await inventoryAdjust({ styleNo, warehouseType, packageSpec, gradeA: newGradeA, gradeB: newGradeB, reason: reason || '盘点调整' }); // 单次API调用
-      setInventory(prev => prev.map(i => inventoryKey(i.styleNo, i.warehouseType, i.packageSpec) === key ? { ...i, gradeA: res.gradeA, gradeB: res.gradeB, currentStock: res.balance } : i));
+      const res = await inventoryAdjust({ styleNo, warehouseType, packageSpec, gradeA: newGradeA, gradeB: newGradeB, reason: reason || '盘点调整', lineId, lineName });
+      setInventory(prev => prev.map(i => `${i.styleNo}-${i.warehouseType}-${i.packageSpec}-${i.lineId || 'noLine'}` === key ? { ...i, gradeA: res.gradeA, gradeB: res.gradeB, currentStock: res.balance } : i));
       setLastSyncTime(new Date());
       toast.success('库存调整成功');
     } catch (e) { toast.error((e as Error).message); throw e; }
@@ -292,8 +292,9 @@ export function useData() {
     return await fetchInventoryAuditLogs(params);
   }, []);
 
-  const productionIn = useCallback(async (styleNo: string, quantity: number, grade?: string, warehouseType?: string, packageSpec?: string, lineId?: number, subLineId?: string) => {
-    await inventoryIn({ styleNo, warehouseType, packageSpec, quantity, grade: grade || 'A', source: '生产入库', note: `产线完成生产 ${quantity}t` });
+  const productionIn = useCallback(async (styleNo: string, quantity: number, grade?: string, warehouseType?: string, packageSpec?: string, lineId?: number, subLineId?: string, lineName?: string) => {
+    // 入库时传递产线信息
+    await inventoryIn({ styleNo, warehouseType, packageSpec, quantity, grade: grade || 'A', source: '生产入库', note: `产线${lineName || lineId || ''}完成生产 ${quantity}t`, lineId, lineName });
     if (lineId) { // 入库完成后清零指定产线的exportCapacity
       const line = lines.find(l => l.id === lineId);
       if (line) {
@@ -307,11 +308,11 @@ export function useData() {
     }
     invalidateCache(); // 清除缓存确保获取最新数据
     await loadData();
-    toast.success(`入库成功: ${styleNo} +${quantity}t`);
+    toast.success(`入库成功: ${styleNo} +${quantity}t (${lineName || '未指定产线'})`);
   }, [lines, loadData]);
 
-  const completeProduction = useCallback(async (lineId: number, styleNo: string, quantity: number, grade?: string, warehouseType?: string, packageSpec?: string) => {
-    await inventoryIn({ styleNo, warehouseType, packageSpec, quantity, grade: grade || 'A', source: '生产入库', note: `产线${lineId}完成生产 ${quantity}t` });
+  const completeProduction = useCallback(async (lineId: number, styleNo: string, quantity: number, grade?: string, warehouseType?: string, packageSpec?: string, lineName?: string) => {
+    await inventoryIn({ styleNo, warehouseType, packageSpec, quantity, grade: grade || 'A', source: '生产入库', note: `产线${lineName || lineId}完成生产 ${quantity}t`, lineId, lineName });
     await loadData();
   }, [loadData]);
 

@@ -19,41 +19,63 @@ const FulfillmentPopover: React.FC<FulfillmentPopoverProps> = ({ order, inventor
   const orderLineIds = useMemo(() => {
     if (order.lineIds) return order.lineIds.split(/[\/,]/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
     if (order.lineId) return [order.lineId];
-    return []; // 空数组表示不限产线
+    return [];
   }, [order.lineIds, order.lineId]);
   // 按产线筛选库存
   const filterByLine = (items: InventoryItem[]): InventoryItem[] => {
-    if (orderLineIds.length === 0) return items; // 未指定产线，显示全部
+    if (orderLineIds.length === 0) return items;
     return items.filter(i => i.lineId && orderLineIds.includes(i.lineId));
   };
-  const generalItems = filterByLine(inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === 'general'));
-  const bondedItems = filterByLine(inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === 'bonded'));
+  // 判断订单需求仓库类型
+  const isBonded = order.tradeType === TradeType.BONDED;
+  const hasCustomAlloc = !!order.warehouseAllocation; // 是否有自定义分配
+  const needGeneral = hasCustomAlloc || !isBonded; // 需要显示一般贸易库
+  const needBonded = hasCustomAlloc || isBonded; // 需要显示保税库
+  // 筛选库存
+  const generalItems = needGeneral ? filterByLine(inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === 'general')) : [];
+  const bondedItems = needBonded ? filterByLine(inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === 'bonded')) : [];
   const generalStock = generalItems.reduce((sum, i) => sum + i.currentStock, 0);
   const bondedStock = bondedItems.reduce((sum, i) => sum + i.currentStock, 0);
-  const initAlloc = order.warehouseAllocation || { general: order.tradeType === TradeType.GENERAL ? order.totalTons : 0, bonded: order.tradeType === TradeType.BONDED ? order.totalTons : 0 };
+  // 初始分配：按贸易类型默认
+  const initAlloc = order.warehouseAllocation || { general: isBonded ? 0 : order.totalTons, bonded: isBonded ? order.totalTons : 0 };
   const [alloc, setAlloc] = useState<WarehouseAllocation>(initAlloc);
+  const [showBothWh, setShowBothWh] = useState(hasCustomAlloc); // 是否显示双仓分配
   const totalAlloc = alloc.general + alloc.bonded;
-  const isValid = Math.abs(totalAlloc - order.totalTons) < 0.01; // 分配总量等于订单总量
+  const isValid = Math.abs(totalAlloc - order.totalTons) < 0.01;
   const canFulfill = alloc.general <= generalStock && alloc.bonded <= bondedStock;
+  // 切换到双仓分配模式
+  const enableBothWh = () => { setShowBothWh(true); setAlloc({ general: 0, bonded: 0 }); };
   return (
     <div className="absolute z-50 top-full right-0 mt-1 w-80 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 text-xs space-y-2" onClick={(e) => e.stopPropagation()}>
       <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
         <span className="font-medium text-slate-700 dark:text-slate-200">{order.styleNo} {order.packageSpec && `(${order.packageSpec})`}</span>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded ${isBonded ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>{isBonded ? t('wh_bonded') : t('wh_general')}</span>
         <button onClick={onClose} className="text-slate-400 hover:text-slate-600">×</button>
       </div>
       <div className="flex justify-between"><span className="text-slate-500">{t('order_demand')}:</span><span className="font-mono font-medium">{order.totalTons}t</span></div>
       <div className="border-t border-slate-100 dark:border-slate-700 pt-2 space-y-2">
-        <div className="text-slate-500 font-medium">{t('wh_allocation')}:</div>
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500" />{t('wh_general')}</span>
-          <span className="text-slate-400 text-[10px]">{t('available_stock')}: {generalStock.toFixed(1)}t</span>
-          <input type="number" step="0.1" min="0" max={generalStock} value={alloc.general} onChange={(e) => setAlloc({ ...alloc, general: parseFloat(e.target.value) || 0 })} className={`w-20 px-1.5 py-0.5 border rounded text-right font-mono ${alloc.general > generalStock ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} />
+        <div className="flex justify-between items-center">
+          <span className="text-slate-500 font-medium">{t('wh_allocation')}:</span>
+          {!showBothWh && <button onClick={enableBothWh} className="text-[10px] text-blue-500 hover:underline">{t('split_warehouse')}</button>}
         </div>
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" />{t('wh_bonded')}</span>
-          <span className="text-slate-400 text-[10px]">{t('available_stock')}: {bondedStock.toFixed(1)}t</span>
-          <input type="number" step="0.1" min="0" max={bondedStock} value={alloc.bonded} onChange={(e) => setAlloc({ ...alloc, bonded: parseFloat(e.target.value) || 0 })} className={`w-20 px-1.5 py-0.5 border rounded text-right font-mono ${alloc.bonded > bondedStock ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} />
-        </div>
+        {showBothWh ? (<>
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500" />{t('wh_general')}</span>
+            <span className="text-slate-400 text-[10px]">{t('available_stock')}: {generalStock.toFixed(1)}t</span>
+            <input type="number" step="0.1" min="0" value={alloc.general} onChange={(e) => setAlloc({ ...alloc, general: parseFloat(e.target.value) || 0 })} className={`w-20 px-1.5 py-0.5 border rounded text-right font-mono ${alloc.general > generalStock ? 'border-red-400 bg-red-50' : 'border-slate-300 dark:border-slate-600 dark:bg-slate-700'}`} />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" />{t('wh_bonded')}</span>
+            <span className="text-slate-400 text-[10px]">{t('available_stock')}: {bondedStock.toFixed(1)}t</span>
+            <input type="number" step="0.1" min="0" value={alloc.bonded} onChange={(e) => setAlloc({ ...alloc, bonded: parseFloat(e.target.value) || 0 })} className={`w-20 px-1.5 py-0.5 border rounded text-right font-mono ${alloc.bonded > bondedStock ? 'border-red-400 bg-red-50' : 'border-slate-300 dark:border-slate-600 dark:bg-slate-700'}`} />
+          </div>
+        </>) : (
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1"><span className={`w-2 h-2 rounded-full ${isBonded ? 'bg-blue-500' : 'bg-slate-500'}`} />{isBonded ? t('wh_bonded') : t('wh_general')}</span>
+            <span className="text-slate-400 text-[10px]">{t('available_stock')}: {(isBonded ? bondedStock : generalStock).toFixed(1)}t</span>
+            <span className="font-mono font-medium">{order.totalTons}t</span>
+          </div>
+        )}
         <div className={`flex justify-between pt-1 border-t border-dashed ${isValid ? 'text-green-600' : 'text-red-500'}`}>
           <span>{t('total_alloc')}:</span><span className="font-mono font-bold">{totalAlloc.toFixed(2)}t {!isValid && <span className="text-red-500">({t('still_need')} {(order.totalTons - totalAlloc).toFixed(2)}t)</span>}</span>
         </div>
@@ -67,7 +89,7 @@ const FulfillmentPopover: React.FC<FulfillmentPopoverProps> = ({ order, inventor
         {bondedItems.length > 0 && <div className="pl-2">{bondedItems.map(item => <div key={`${item.styleNo}-${item.warehouseType}-${item.packageSpec}-${item.lineId}`} className="flex justify-between text-slate-500"><span>{t('wh_bonded')} {item.packageSpec} {item.lineName && <span className="text-blue-400">({item.lineName})</span>}</span><span className="font-mono">{item.currentStock.toFixed(1)}t</span></div>)}</div>}
         {generalItems.length === 0 && bondedItems.length === 0 && <div className="text-slate-400 italic pl-2">{t('no_stock')}</div>}
       </div>
-      <button onClick={() => onSave(alloc)} disabled={!isValid || !canFulfill} className="w-full py-1.5 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">{t('btn_save_alloc')}</button>
+      {showBothWh && <button onClick={() => onSave(alloc)} disabled={!isValid || !canFulfill} className="w-full py-1.5 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">{t('btn_save_alloc')}</button>}
     </div>
   );
 };

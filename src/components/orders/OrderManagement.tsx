@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Order, InventoryItem, ProductLine, LoadingTimeSlot, WorkshopCommStatus, TradeType, OrderStatus, PackageSpec, WarehouseAllocation } from '../../types';
-import { AlertCircle, Bot, Loader2, MessageSquare, ChevronDown, ChevronUp, Upload, FileSpreadsheet, Edit2, Trash2, Package, Truck, Calendar, Download, Printer, ArrowUp, ArrowDown, Users, Filter, X, Search } from 'lucide-react';
+import { AlertCircle, Bot, Loader2, MessageSquare, ChevronDown, ChevronUp, Upload, FileSpreadsheet, Edit2, Trash2, Package, Truck, Calendar, Download, Printer, ArrowUp, ArrowDown, Users, Filter, X, Search, Lock, CheckCircle } from 'lucide-react';
 import { useIsMobile } from '../../hooks';
 import { parseOrderText, patchOrder, createOrder, deleteOrder } from '../../services';
 import { invalidateCache } from '../../services/api';
@@ -25,7 +25,7 @@ const FulfillmentPopover: React.FC<FulfillmentPopoverProps> = ({ order, inventor
   const isValid = Math.abs(totalAlloc - order.totalTons) < 0.01; // 分配总量等于订单总量
   const canFulfill = alloc.general <= generalStock && alloc.bonded <= bondedStock;
   return (
-    <div className="absolute z-50 top-full left-0 mt-1 w-80 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 text-xs space-y-2" onClick={(e) => e.stopPropagation()}>
+    <div className="absolute z-50 top-full right-0 mt-1 w-80 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 text-xs space-y-2" onClick={(e) => e.stopPropagation()}>
       <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
         <span className="font-medium text-slate-700 dark:text-slate-200">{order.styleNo} {order.packageSpec && `(${order.packageSpec})`}</span>
         <button onClick={onClose} className="text-slate-400 hover:text-slate-600">×</button>
@@ -557,7 +557,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
         </div>
       )}
 
-      {viewMode === 'calendar' && <OrderCalendar orders={orders} onSelectOrder={(o) => { setEditingOrder({ ...o }); setShowEditModal(true); }} onCreateOrder={(date) => { setEditingOrder({ id: '', date: new Date().toISOString().split('T')[0], client: '', styleNo: '', piNo: '', totalTons: 0, containers: 1, packagesPerContainer: 30, port: '', contactPerson: '', tradeType: TradeType.GENERAL, requirements: '', status: OrderStatus.PENDING, isLargeOrder: false, largeOrderAck: false, expectedShipDate: date } as Order); setShowEditModal(true); }} />}
+      {viewMode === 'calendar' && <OrderCalendar orders={orders} onSelectOrder={(o) => { setEditingOrder({ ...o }); setShowEditModal(true); }} onCreateOrder={(date) => { setEditingOrder({ id: '', date, client: '', styleNo: '', piNo: '', totalTons: 0, containers: 1, packagesPerContainer: 30, port: '', contactPerson: '', tradeType: TradeType.GENERAL, requirements: '', status: OrderStatus.PENDING, isLargeOrder: false, largeOrderAck: false } as Order); setShowEditModal(true); }} />}
 
       {viewMode === 'customers' && <CustomerManagement orders={orders} />}
 
@@ -656,7 +656,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_contact')}</label><input type="text" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.contactPerson} onChange={(e) => setEditingOrder({ ...editingOrder, contactPerson: e.target.value })} /></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_trade_type')}</label><select className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.tradeType} onChange={(e) => setEditingOrder({ ...editingOrder, tradeType: e.target.value as TradeType })}><option value={TradeType.GENERAL}>{t('trade_general')}</option><option value={TradeType.BONDED}>{t('trade_bonded')}</option></select></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_loading_time')}</label><select className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.loadingTimeSlot || LoadingTimeSlot.FLEXIBLE} onChange={(e) => setEditingOrder({ ...editingOrder, loadingTimeSlot: e.target.value as LoadingTimeSlot })}><option value={LoadingTimeSlot.FLEXIBLE}>{t('loading_flexible')}</option><option value={LoadingTimeSlot.MORNING}>{t('loading_morning')}</option><option value={LoadingTimeSlot.AFTERNOON}>{t('loading_afternoon')}</option></select></div>
-              <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_ship_date')}</label><input type="date" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.expectedShipDate || ''} onChange={(e) => setEditingOrder({ ...editingOrder, expectedShipDate: e.target.value })} /></div>
               <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_prep_days')}</label><input type="number" className="w-full border border-slate-300 rounded-lg p-2 text-sm" value={editingOrder.prepDaysRequired || 0} onChange={(e) => setEditingOrder({ ...editingOrder, prepDaysRequired: parseInt(e.target.value) || 0 })} /></div>
             </div>
             <div><label className="block text-xs font-medium text-slate-500 mb-1">{t('field_requirements')}</label><textarea className="w-full border border-slate-300 rounded-lg p-2 text-sm h-16" value={editingOrder.requirements} onChange={(e) => setEditingOrder({ ...editingOrder, requirements: e.target.value })} /></div>
@@ -670,6 +669,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
         <div className="space-y-3">
           {displayOrders.length === 0 && <div className="text-center py-8 text-slate-400">{t('no_orders_load')}</div>}
           {displayOrders.map((order) => {
+            const isReadyToShip = order.status === OrderStatus.READY_TO_SHIP;
+            const isShipped = order.status === OrderStatus.SHIPPED;
             const { percent, isShortage } = calculateFulfillment(order, inventory, lines, orders);
             return (
               <div key={order.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3" onClick={() => handleOpenEdit(order)}>
@@ -698,8 +699,18 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                     <span className="text-xs text-slate-400">{order.port}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-12 bg-slate-200 dark:bg-slate-600 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${isShortage ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(percent, 100)}%` }} /></div>
-                    <span className={`text-xs ${isShortage ? 'text-red-500' : 'text-green-600'}`}>{percent.toFixed(0)}%</span>
+                    {isShipped ? (
+                      <span className="text-xs text-slate-400">-</span>
+                    ) : isReadyToShip ? (
+                      <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 rounded flex items-center">
+                        <Lock size={10} className="mr-0.5" />{t('status_locked')}
+                      </span>
+                    ) : (
+                      <>
+                        <div className="w-12 bg-slate-200 dark:bg-slate-600 rounded-full h-1.5"><div className={`h-1.5 rounded-full ${isShortage ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(percent, 100)}%` }} /></div>
+                        <span className={`text-xs ${isShortage ? 'text-red-500' : 'text-green-600'}`}>{percent.toFixed(0)}%</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
@@ -708,7 +719,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                   ) : <span />}
                   <div className="flex items-center gap-1">
                     <button onClick={(e) => { e.stopPropagation(); setPrintOrder(order); }} className="p-1.5 text-slate-400 hover:text-blue-600"><Printer size={16} /></button>
-                    {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="p-1.5 text-slate-400 hover:text-red-500"><Trash2 size={16} /></button>}
+                    {order.status !== OrderStatus.SHIPPED && order.status !== OrderStatus.READY_TO_SHIP && <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="p-1.5 text-slate-400 hover:text-red-500"><Trash2 size={16} /></button>}
                   </div>
                 </div>
               </div>
@@ -743,6 +754,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {displayOrders.map((order, idx) => {
+                const isReadyToShip = order.status === OrderStatus.READY_TO_SHIP;
+                const isShipped = order.status === OrderStatus.SHIPPED;
                 const { percent, isShortage } = calculateFulfillment(order, inventory, lines, orders);
                 const isUrgent = order.isLargeOrder && !order.largeOrderAck;
                 const isExpanded = expandedId === order.id;
@@ -772,11 +785,19 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                         </select>
                       </td>
                       <td className="px-3 py-3 relative">
-                        <div className="flex items-center space-x-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); setFulfillmentDetailId(fulfillmentDetailId === order.id ? null : order.id); }}>
-                          <div className="w-16 bg-slate-200 dark:bg-slate-600 rounded-full h-2"><div className={`h-2 rounded-full ${isShortage ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(percent, 100)}%` }} /></div>
-                          <span className={`text-xs ${isShortage ? 'text-red-500 font-bold' : 'text-green-600 dark:text-green-400'}`}>{percent.toFixed(0)}%</span>
-                        </div>
-                        {fulfillmentDetailId === order.id && <FulfillmentPopover order={order} inventory={inventory} t={t} onClose={() => setFulfillmentDetailId(null)} onSave={(alloc) => { patchOrder(order.id, { warehouseAllocation: alloc }).then(() => { setOrders(prev => prev.map(o => o.id === order.id ? { ...o, warehouseAllocation: alloc } : o)); toast.success(t('toast_order_saved')); }).catch(() => toast.error(t('alert_save_fail'))); }} />}
+                        {isShipped ? (
+                          <span className="text-slate-400">-</span>
+                        ) : isReadyToShip ? (
+                          <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-1 rounded inline-flex items-center"><Lock size={12} className="mr-1" />{t('status_locked')}</span>
+                        ) : (
+                          <>
+                            <div className="flex items-center space-x-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); setFulfillmentDetailId(fulfillmentDetailId === order.id ? null : order.id); }}>
+                              <div className="w-16 bg-slate-200 dark:bg-slate-600 rounded-full h-2"><div className={`h-2 rounded-full ${isShortage ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(percent, 100)}%` }} /></div>
+                              <span className={`text-xs ${isShortage ? 'text-red-500 font-bold' : 'text-green-600 dark:text-green-400'}`}>{percent.toFixed(0)}%</span>
+                            </div>
+                            {fulfillmentDetailId === order.id && <FulfillmentPopover order={order} inventory={inventory} t={t} onClose={() => setFulfillmentDetailId(null)} onSave={(alloc) => { patchOrder(order.id, { warehouseAllocation: alloc }).then(() => { setOrders(prev => prev.map(o => o.id === order.id ? { ...o, warehouseAllocation: alloc } : o)); toast.success(t('toast_order_saved')); }).catch(() => toast.error(t('alert_save_fail'))); }} />}
+                          </>
+                        )}
                       </td>
                       <td className="px-3 py-3 text-center">
                         <div className="flex items-center justify-center space-x-1">
@@ -784,8 +805,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                             <button onClick={(e) => { e.stopPropagation(); onAcknowledgeOrder(order.id); }} className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded text-xs font-semibold animate-pulse inline-flex items-center"><AlertCircle size={10} className="mr-0.5" />{t('btn_ack_large')}</button>
                           )}
                           <button onClick={(e) => { e.stopPropagation(); setPrintOrder(order); }} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" title={t('print_packing_list')}><Printer size={14} /></button>
-                          {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(order); }} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"><Edit2 size={14} /></button>}
-                          {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="p-1 text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>}
+                          {order.status !== OrderStatus.SHIPPED && order.status !== OrderStatus.READY_TO_SHIP && <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(order); }} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"><Edit2 size={14} /></button>}
+                          {order.status !== OrderStatus.SHIPPED && order.status !== OrderStatus.READY_TO_SHIP && <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="p-1 text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>}
                           {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                         </div>
                       </td>

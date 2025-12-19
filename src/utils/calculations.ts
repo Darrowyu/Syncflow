@@ -48,6 +48,11 @@ export const calculateFulfillment = (
 ): FulfillmentResult => {
   const { includeProduction = false } = options || {};
 
+  // 齐料待发订单：库存已锁定，满足率固定100%
+  if (order.status === OrderStatus.READY_TO_SHIP) {
+    return { available: order.totalTons, percent: 100, isShortage: false };
+  }
+
   // 获取指定仓库的可用库存（扣除锁定量）
   const getAvailableStock = (whType: 'general' | 'bonded'): number => {
     const matchItems = order.packageSpec
@@ -56,20 +61,38 @@ export const calculateFulfillment = (
     return matchItems.reduce((sum, i) => sum + Math.max(0, i.currentStock - (i.lockedForToday || 0)), 0);
   };
 
-  // 计算其他未发货订单对同款号库存的占用量
-  const getOtherOrdersOccupied = (whType: 'general' | 'bonded'): number => {
+  // 计算"齐料待发"订单锁定的库存量（优先级最高，必须先扣除）
+  const getReadyToShipLocked = (whType: 'general' | 'bonded'): number => {
     if (!allOrders) return 0;
     return allOrders
-      .filter(o => o.id !== order.id && o.styleNo === order.styleNo && o.status !== 'Shipped') // 排除当前订单和已发货订单
+      .filter(o => o.id !== order.id && o.styleNo === order.styleNo && o.status === OrderStatus.READY_TO_SHIP) // 仅齐料待发订单
       .filter(o => {
-        if (o.warehouseAllocation) return true; // 有分配的订单两个仓库都可能占用
-        return (o.tradeType === 'Bonded' ? 'bonded' : 'general') === whType; // 按贸易类型判断默认仓库
+        if (o.warehouseAllocation) return true;
+        return (o.tradeType === 'Bonded' ? 'bonded' : 'general') === whType;
       })
       .reduce((sum, o) => {
         if (o.warehouseAllocation) {
           return sum + (whType === 'general' ? o.warehouseAllocation.general : o.warehouseAllocation.bonded);
         }
-        return sum + o.totalTons; // 无分配则占用全部需求量
+        return sum + o.totalTons;
+      }, 0);
+  };
+
+  // 计算其他普通订单（待处理/生产中）对库存的占用量
+  const getOtherOrdersOccupied = (whType: 'general' | 'bonded'): number => {
+    if (!allOrders) return 0;
+    return allOrders
+      .filter(o => o.id !== order.id && o.styleNo === order.styleNo) // 同款号其他订单
+      .filter(o => o.status !== OrderStatus.SHIPPED && o.status !== OrderStatus.READY_TO_SHIP) // 排除已发货和齐料待发（已单独计算）
+      .filter(o => {
+        if (o.warehouseAllocation) return true;
+        return (o.tradeType === 'Bonded' ? 'bonded' : 'general') === whType;
+      })
+      .reduce((sum, o) => {
+        if (o.warehouseAllocation) {
+          return sum + (whType === 'general' ? o.warehouseAllocation.general : o.warehouseAllocation.bonded);
+        }
+        return sum + o.totalTons;
       }, 0);
   };
 
@@ -84,13 +107,15 @@ export const calculateFulfillment = (
   if (order.warehouseAllocation) {
     // 有仓库分配：分别计算两个仓库的可用量
     const { general: allocGeneral, bonded: allocBonded } = order.warehouseAllocation;
-    const generalStock = Math.max(0, getAvailableStock('general') - getOtherOrdersOccupied('general'));
-    const bondedStock = Math.max(0, getAvailableStock('bonded') - getOtherOrdersOccupied('bonded'));
+    // 可用库存 = 总库存 - 齐料待发锁定 - 其他订单占用
+    const generalStock = Math.max(0, getAvailableStock('general') - getReadyToShipLocked('general') - getOtherOrdersOccupied('general'));
+    const bondedStock = Math.max(0, getAvailableStock('bonded') - getReadyToShipLocked('bonded') - getOtherOrdersOccupied('bonded'));
     availableStock = Math.min(allocGeneral, generalStock) + Math.min(allocBonded, bondedStock);
   } else {
     // 无分配：按贸易类型取对应仓库
     const whType = order.tradeType === 'Bonded' ? 'bonded' : 'general';
-    availableStock = Math.max(0, getAvailableStock(whType) - getOtherOrdersOccupied(whType));
+    // 可用库存 = 总库存 - 齐料待发锁定 - 其他订单占用
+    availableStock = Math.max(0, getAvailableStock(whType) - getReadyToShipLocked(whType) - getOtherOrdersOccupied(whType));
   }
 
   // 加上今日产能
@@ -124,14 +149,14 @@ export const getCriticalAlerts = (orders: Order[]): Order[] => orders.filter(o =
 
 export const getTodayShipments = (orders: Order[]): Order[] => { // 获取今日待发货（齐料待发）
   const today = new Date().toISOString().split('T')[0];
-  return orders.filter(o => (o.expectedShipDate === today || o.date === today) && o.status === OrderStatus.READY_TO_SHIP);
+  return orders.filter(o => o.date === today && o.status === OrderStatus.READY_TO_SHIP);
 };
 
-export const getUpcomingShipments = (orders: Order[]): Order[] => { // 获取近期待发货订单（有预计发货日且未发货）
+export const getUpcomingShipments = (orders: Order[]): Order[] => { // 获取近期待发货订单（未发货且日期在今日之后）
   const today = new Date().toISOString().split('T')[0];
   return orders
-    .filter(o => o.expectedShipDate && o.expectedShipDate > today && o.status !== OrderStatus.SHIPPED)
-    .sort((a, b) => (a.expectedShipDate || '').localeCompare(b.expectedShipDate || ''))
+    .filter(o => o.date > today && o.status !== OrderStatus.SHIPPED)
+    .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 10);
 };
 

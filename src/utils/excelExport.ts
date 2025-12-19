@@ -70,9 +70,9 @@ export async function exportToExcel<T extends object>(data: T[], type: ExportTyp
   const config = configs[type];
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet(config.sheetName);
-  
+
   ws.columns = config.columns.map(c => ({ header: c.header, key: c.key, width: c.width }));
-  
+
   data.forEach((item, idx) => {
     const row: Record<string, unknown> = {};
     config.columns.forEach(c => {
@@ -82,7 +82,7 @@ export async function exportToExcel<T extends object>(data: T[], type: ExportTyp
     });
     ws.addRow(row);
   });
-  
+
   const leftCols = new Set(config.columns.filter(c => c.align === 'left').map(c => c.key)); // 左对齐列
   ws.eachRow((row, rowNum) => {
     row.eachCell((cell, colNum) => {
@@ -91,7 +91,7 @@ export async function exportToExcel<T extends object>(data: T[], type: ExportTyp
       cell.alignment = { horizontal: rowNum === 1 ? 'center' : (leftCols.has(colKey) ? 'left' : 'center'), vertical: 'middle' };
     });
   });
-  
+
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
@@ -102,7 +102,68 @@ export async function exportToExcel<T extends object>(data: T[], type: ExportTyp
   URL.revokeObjectURL(url);
 }
 
-export const exportOrdersToExcel = (orders: Order[]) => exportToExcel(orders, 'orders');
+export async function exportOrdersToExcel(orders: Order[]): Promise<void> { // 订单专用导出（含标题行和合计行）
+  const config = configs.orders;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(config.sheetName);
+
+  ws.columns = config.columns.map(c => ({ key: c.key, width: c.width }));
+
+  // 1. 首行：标题（日期 + 海运装柜）
+  const shipDate = orders.length > 0 ? orders[0].date : new Date().toISOString().split('T')[0];
+  const titleRow = ws.addRow([`${shipDate} 海运装柜`]);
+  ws.mergeCells(1, 1, 1, config.columns.length); // 合并首行所有列
+  titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+  titleRow.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFF0000' } };
+
+  // 2. 第二行：表头
+  const headerRow = ws.addRow(config.columns.map(c => c.header));
+  headerRow.eachCell(cell => {
+    cell.font = { name: 'Calibri', size: 11, bold: true };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+  });
+
+  // 3. 数据行
+  const leftCols = new Set(config.columns.filter(c => c.align === 'left').map(c => c.key));
+  orders.forEach((order, idx) => {
+    const rowData = config.columns.map(c => {
+      if (c.key === '_seq') return idx + 1;
+      const val = (order as unknown as Record<string, unknown>)[c.key];
+      return c.transform ? c.transform(val, order as unknown as Record<string, unknown>) : (typeof val === 'boolean' ? (val ? '是' : '否') : (val ?? ''));
+    });
+    const dataRow = ws.addRow(rowData);
+    dataRow.eachCell((cell, colNum) => {
+      cell.font = { name: 'Calibri', size: 11 };
+      const colKey = config.columns[colNum - 1]?.key;
+      cell.alignment = { horizontal: leftCols.has(colKey) ? 'left' : 'center', vertical: 'middle' };
+    });
+  });
+
+  // 4. 合计行
+  const totalTons = orders.reduce((sum, o) => sum + (o.totalTons || 0), 0);
+  const totalContainers = orders.reduce((sum, o) => sum + (o.containers || 0), 0);
+  const summaryRowData = config.columns.map(c => {
+    if (c.key === '_seq') return '合计';
+    if (c.key === 'totalTons') return totalTons.toFixed(2);
+    if (c.key === 'containers') return totalContainers;
+    return '';
+  });
+  const summaryRow = ws.addRow(summaryRowData);
+  summaryRow.eachCell((cell, colNum) => {
+    cell.font = { name: 'Calibri', size: 11, bold: true };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+  });
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `orders_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export const exportInventoryToExcel = (inventory: InventoryItem[]) => exportToExcel(inventory, 'inventory');
 export const exportLinesToExcel = (lines: ProductLine[]) => exportToExcel(lines, 'lines');
 export const exportIncidentsToExcel = (incidents: IncidentLog[]) => exportToExcel(incidents, 'incidents');

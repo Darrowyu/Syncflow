@@ -34,7 +34,7 @@ export interface WarehouseAllocation { // 仓库分配
 
 export interface Order {
   id: string;
-  date: string;
+  date: string; // 出货日期（导入导出时显示为"日期"）
   client: string;
   styleNo: string;
   packageSpec?: PackageSpec; // 包装规格（可选，后续可补充）
@@ -53,7 +53,6 @@ export interface Order {
   isLargeOrder: boolean;
   largeOrderAck: boolean;
   loadingTimeSlot?: LoadingTimeSlot; // 装货时间段
-  expectedShipDate?: string; // 预计发货日期
   workshopCommStatus?: WorkshopCommStatus; // 车间沟通状态
   workshopNote?: string; // 车间沟通备注
   prepDaysRequired?: number; // 大货需提前备货天数

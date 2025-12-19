@@ -136,8 +136,8 @@ const OrderTable: React.FC<OrderTableProps> = memo(({ orders, allOrders, invento
                             <div className="flex items-center justify-center space-x-1">
                               {isUrgent && <button onClick={(e) => { e.stopPropagation(); onAcknowledgeOrder(order.id); }} className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded text-xs font-semibold animate-pulse inline-flex items-center"><AlertCircle size={10} className="mr-0.5" />{t('btn_ack_large')}</button>}
                               <button onClick={(e) => { e.stopPropagation(); onPrint(order); }} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" title={t('print_packing_list')}><Printer size={14} /></button>
-                              {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); onEdit(order); }} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"><Edit2 size={14} /></button>}
-                              {order.status !== OrderStatus.SHIPPED && <button onClick={(e) => { e.stopPropagation(); onDelete(order.id); }} className="p-1 text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>}
+                              {order.status !== OrderStatus.SHIPPED && order.status !== OrderStatus.READY_TO_SHIP && <button onClick={(e) => { e.stopPropagation(); onEdit(order); }} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"><Edit2 size={14} /></button>}
+                              {order.status !== OrderStatus.SHIPPED && order.status !== OrderStatus.READY_TO_SHIP && <button onClick={(e) => { e.stopPropagation(); onDelete(order.id); }} className="p-1 text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>}
                               {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                             </div>
                           </td>

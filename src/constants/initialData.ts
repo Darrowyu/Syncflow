@@ -26,7 +26,7 @@ export const INITIAL_ORDERS: Order[] = [
     contactPerson: 'Wang Fujing', tradeType: TradeType.GENERAL,
     requirements: '820KG Export Pack, Plywood Pallet, Film, Stock, Rail/Sea',
     status: OrderStatus.PENDING, isLargeOrder: true, largeOrderAck: true,
-    loadingTimeSlot: LoadingTimeSlot.MORNING, expectedShipDate: '2023-11-29',
+    loadingTimeSlot: LoadingTimeSlot.MORNING,
     workshopCommStatus: WorkshopCommStatus.CONFIRMED, prepDaysRequired: 2,
   },
   {
@@ -35,7 +35,7 @@ export const INITIAL_ORDERS: Order[] = [
     contactPerson: 'Wang Fujing', tradeType: TradeType.GENERAL,
     requirements: '820KG Export Pack, Plywood Pallet, Film, Stock, Premium',
     status: OrderStatus.CONFIRMED, isLargeOrder: false, largeOrderAck: false,
-    loadingTimeSlot: LoadingTimeSlot.AFTERNOON, expectedShipDate: '2023-11-29',
+    loadingTimeSlot: LoadingTimeSlot.AFTERNOON,
     workshopCommStatus: WorkshopCommStatus.CONFIRMED, prepDaysRequired: 0,
   },
   {
@@ -44,7 +44,7 @@ export const INITIAL_ORDERS: Order[] = [
     contactPerson: 'TRACY', tradeType: TradeType.BONDED,
     requirements: '820KG Export Pack, Molded Pallet, Film, Stock, Manual #614, Rail/Sea',
     status: OrderStatus.CONFIRMED, isLargeOrder: true, largeOrderAck: false,
-    loadingTimeSlot: LoadingTimeSlot.MORNING, expectedShipDate: '2023-11-30',
+    loadingTimeSlot: LoadingTimeSlot.MORNING,
     workshopCommStatus: WorkshopCommStatus.IN_PROGRESS, workshopNote: '需提前与车间确认产能', prepDaysRequired: 3,
   }
 ];

@@ -39,7 +39,7 @@ const OrderCalendar: React.FC<OrderCalendarProps> = memo(({ orders, onSelectOrde
     const ordersByDate = useMemo(() => {
         const map: Record<string, Order[]> = {};
         orders.forEach(order => {
-            const dateKey = order.expectedShipDate || order.date; // 优先用expectedShipDate，否则用date
+            const dateKey = order.date; // 使用出货日期作为日历定位
             if (!dateKey) return;
             if (!map[dateKey]) map[dateKey] = [];
             map[dateKey].push(order);
@@ -77,7 +77,7 @@ const OrderCalendar: React.FC<OrderCalendarProps> = memo(({ orders, onSelectOrde
     const handleDrop = useCallback((e: React.DragEvent, dateStr: string) => {
         e.preventDefault();
         if (dragOrder && onSelectOrder) {
-            onSelectOrder({ ...dragOrder, expectedShipDate: dateStr }); // 触发编辑弹窗，预填新日期
+            onSelectOrder({ ...dragOrder, date: dateStr }); // 触发编辑弹窗，预填新日期
         }
         setDragOrder(null);
     }, [dragOrder, onSelectOrder]);
@@ -109,7 +109,7 @@ const OrderCalendar: React.FC<OrderCalendarProps> = memo(({ orders, onSelectOrde
         const dayOrders = dateStr ? ordersByDate[dateStr] || [] : [];
         const dayTons = tonsByDate[dateStr] || 0;
         return (
-            <div 
+            <div
                 key={dateStr || dayNum}
                 className={`${minHeight} border-r border-b border-slate-100 dark:border-slate-700 p-1 ${!isCurrentMonth ? 'bg-slate-50 dark:bg-slate-900/50' : ''} ${isToday ? 'bg-blue-50 dark:bg-blue-900/30' : ''} ${dragOrder ? 'hover:bg-blue-50 dark:hover:bg-blue-900/30' : ''}`}
                 onDragOver={handleDragOver}
@@ -130,11 +130,11 @@ const OrderCalendar: React.FC<OrderCalendarProps> = memo(({ orders, onSelectOrde
                         </div>
                         <div className={`space-y-0.5 overflow-y-auto ${viewMode === 'week' ? 'max-h-[200px]' : 'max-h-[60px]'}`}>
                             {dayOrders.slice(0, viewMode === 'week' ? 10 : 3).map(order => (
-                                <div 
-                                    key={order.id} 
-                                    draggable 
+                                <div
+                                    key={order.id}
+                                    draggable
                                     onDragStart={(e) => handleDragStart(e, order)}
-                                    onClick={() => onSelectOrder?.(order)} 
+                                    onClick={() => onSelectOrder?.(order)}
                                     className="flex items-center px-1 py-0.5 rounded text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 truncate"
                                 >
                                     <span className={`w-1.5 h-1.5 rounded-full mr-1 flex-shrink-0 ${getStatusColor(order.status)}`}></span>

@@ -107,7 +107,7 @@ const OrderSchema: Schema = {
 export const parseOrderText = async (text: string): Promise<Partial<Order>[]> => {
   const config = getEffectiveConfig();
   const prompt = `Extract order details from this text. Today is ${new Date().toISOString().split('T')[0]}. If date is missing, assume tomorrow. Return JSON format: {"orders":[{"client":"","styleNo":"","totalTons":0,"piNo":"","containers":0,"port":"","contactPerson":"","requirements":"","date":"YYYY-MM-DD"}]}. Text: "${text}"`;
-  const response = config.provider === 'deepseek' 
+  const response = config.provider === 'deepseek'
     ? await callDeepSeek(config.apiKey, prompt, true)
     : await callGemini(config.apiKey, prompt, OrderSchema);
   const result = JSON.parse(response || '{}');
@@ -143,7 +143,7 @@ export const getProductionSuggestion = async (orders: Order[], lines: ProductLin
   const prompt = `作为生产调度专家，分析SyncFlow系统数据并给出排产建议：
 
 【待发订单】
-${pendingOrders.map(o => `- ${o.client}: ${o.styleNo} ${o.totalTons}t, 交期${o.expectedShipDate || o.date}`).join('\n')}
+${pendingOrders.map(o => `- ${o.client}: ${o.styleNo} ${o.totalTons}t, 交期${o.date}`).join('\n')}
 
 【产线状态】
 ${linesData.map(l => `- ${l.name}(${l.status}): 款号${l.styles}, 产能${l.totalCapacity}t/日, 外贸${l.exportCapacity}t`).join('\n')}
@@ -201,7 +201,7 @@ export const getShippingPriority = async (orders: Order[], inventory: InventoryI
 ${pending.map(o => {
     const stock = inventoryMap[o.styleNo] || 0;
     const stockStatus = stock >= o.totalTons ? '✓充足' : `⚠缺${(o.totalTons - stock).toFixed(1)}t`;
-    return `- ${o.client} | ${o.styleNo} ${o.totalTons}t | 交期${o.expectedShipDate || o.date} | ${o.isLargeOrder ? '大单' : '常规'} | 库存${stockStatus}`;
+    return `- ${o.client} | ${o.styleNo} ${o.totalTons}t | 交期${o.date} | ${o.isLargeOrder ? '大单' : '常规'} | 库存${stockStatus}`;
   }).join('\n')}
 
 【排序依据】1.交期紧迫度 2.库存充足度 3.大单优先 4.保税订单优先

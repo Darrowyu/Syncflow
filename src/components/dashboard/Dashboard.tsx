@@ -133,7 +133,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, inventory, lines, inciden
                       <span className="font-semibold text-slate-800 dark:text-slate-100 text-sm truncate">{order.client}</span>
                       <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded text-xs font-mono">{order.styleNo}</span>
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{order.expectedShipDate} · {order.totalTons}t</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{order.date} · {order.totalTons}t</div>
                   </div>
                   {order.prepDaysRequired && order.prepDaysRequired > 0 && (
                     <span className="bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded text-xs flex-shrink-0 ml-2">{order.prepDaysRequired}{t('days')}</span>

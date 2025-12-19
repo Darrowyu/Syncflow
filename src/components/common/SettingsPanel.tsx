@@ -1,20 +1,30 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Download, Upload, Database, AlertTriangle, Check, Settings, Keyboard, Moon, Sun, Monitor, Bot, Eye, EyeOff } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Download, Upload, Database, AlertTriangle, Check, Settings, Keyboard, Moon, Sun, Monitor, Bot, Eye, EyeOff, RotateCcw, Edit3 } from 'lucide-react';
 import { downloadBackup, restoreBackup } from '../../services/api';
 import { getAIConfig, saveAIConfig, clearAIConfig, getProviderKey, AIProvider } from '../../services';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../i18n';
 import { Modal } from './Modal';
+import { HotkeyConfig, HotkeyAction, eventToHotkey, checkConflict } from '../../hooks';
 
-interface SettingsPanelProps { onClose: () => void; onRefresh?: () => void }
+interface SettingsPanelProps {
+    onClose: () => void;
+    onRefresh?: () => void;
+    hotkeys?: HotkeyConfig[];
+    updateHotkey?: (action: HotkeyAction, newKey: string) => { success: boolean; message: string };
+    resetHotkeys?: () => void;
+    formatHotkey?: (key: string) => string;
+}
 
-const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => {
+const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh, hotkeys, updateHotkey, resetHotkeys, formatHotkey }) => {
     const [isExporting, setIsExporting] = useState(false);
     const [isRestoring, setIsRestoring] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [aiProvider, setAiProvider] = useState<AIProvider>('gemini');
     const [aiApiKey, setAiApiKey] = useState('');
     const [showApiKey, setShowApiKey] = useState(false);
+    const [editingAction, setEditingAction] = useState<HotkeyAction | null>(null);
+    const [recordedKey, setRecordedKey] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { theme, setTheme } = useTheme();
     const { t } = useLanguage();
@@ -78,11 +88,36 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
         }
     };
 
-    const shortcuts = [
-        { key: 'Alt + 1~5', desc: t('shortcut_switch_page') },
-        { key: 'Alt + D', desc: t('shortcut_dark_mode') },
-        { key: 'Alt + A', desc: t('shortcut_ai_assistant') },
-    ];
+    const handleKeyRecord = useCallback((e: KeyboardEvent) => { // 录制快捷键
+        e.preventDefault();
+        e.stopPropagation();
+        const key = eventToHotkey(e);
+        if (key) setRecordedKey(key);
+    }, []);
+
+    useEffect(() => { // 监听快捷键录制
+        if (editingAction) {
+            window.addEventListener('keydown', handleKeyRecord);
+            return () => window.removeEventListener('keydown', handleKeyRecord);
+        }
+    }, [editingAction, handleKeyRecord]);
+
+    const handleSaveHotkey = (): void => { // 保存快捷键
+        if (!editingAction || !recordedKey || !updateHotkey) return;
+        const result = updateHotkey(editingAction, recordedKey);
+        setMessage({ type: result.success ? 'success' : 'error', text: result.success ? t('hotkey_saved') : result.message });
+        if (result.success) { setEditingAction(null); setRecordedKey(null); }
+    };
+
+    const handleResetHotkeys = (): void => { // 重置快捷键
+        if (window.confirm(t('hotkey_reset_confirm'))) { resetHotkeys?.(); setMessage({ type: 'success', text: t('hotkey_saved') }); }
+    };
+
+    const hotkeyLabels: Record<HotkeyAction, string> = { // 快捷键标签映射
+        dashboard: t('hotkey_dashboard'), orders: t('hotkey_orders'), production: t('hotkey_production'),
+        warehouse: t('hotkey_warehouse'), help: t('hotkey_help'), toggleTheme: t('hotkey_theme'),
+        toggleAI: t('hotkey_ai'), toggleSettings: t('hotkey_settings'),
+    };
 
     return (
         <Modal isOpen onClose={onClose} title={t('settings_title')} titleIcon={<Settings size={20} />}>
@@ -139,12 +174,28 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, onRefresh }) => 
                     </div>
                 )}
                 <section>
-                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center"><Keyboard size={16} className="mr-2" />{t('shortcuts')}</h4>
+                    <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center justify-between">
+                        <span className="flex items-center"><Keyboard size={16} className="mr-2" />{t('shortcuts')}</span>
+                        {resetHotkeys && <button onClick={handleResetHotkeys} className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center"><RotateCcw size={12} className="mr-1" />{t('hotkey_reset')}</button>}
+                    </h4>
                     <div className="space-y-2">
-                        {shortcuts.map(s => (
-                            <div key={s.key} className="flex justify-between items-center text-sm">
-                                <span className="text-slate-600 dark:text-slate-400">{s.desc}</span>
-                                <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-xs font-mono text-slate-700 dark:text-slate-300">{s.key}</kbd>
+                        {hotkeys?.map(hk => (
+                            <div key={hk.action} className="flex justify-between items-center text-sm">
+                                <span className="text-slate-600 dark:text-slate-400">{hotkeyLabels[hk.action]}</span>
+                                {editingAction === hk.action ? (
+                                    <div className="flex items-center space-x-2">
+                                        <kbd className={`px-2 py-1 rounded text-xs font-mono min-w-[80px] text-center ${recordedKey ? (checkConflict(recordedKey).conflict ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400') : 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 animate-pulse'}`}>
+                                            {recordedKey ? (formatHotkey?.(recordedKey) || recordedKey) : t('hotkey_recording')}
+                                        </kbd>
+                                        <button onClick={handleSaveHotkey} disabled={!recordedKey || checkConflict(recordedKey || '').conflict} className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"><Check size={12} /></button>
+                                        <button onClick={() => { setEditingAction(null); setRecordedKey(null); }} className="px-2 py-1 text-xs bg-slate-200 text-slate-600 rounded hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300">✕</button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center space-x-2">
+                                        <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-xs font-mono text-slate-700 dark:text-slate-300">{formatHotkey?.(hk.key) || hk.key}</kbd>
+                                        {updateHotkey && <button onClick={() => { setEditingAction(hk.action); setRecordedKey(null); }} className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"><Edit3 size={12} /></button>}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

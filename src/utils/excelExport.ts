@@ -32,6 +32,7 @@ const configs: Record<ExportType, ExportConfig> = {
     filename: 'inventory_export', sheetName: '库存列表',
     columns: [
       { key: 'styleNo', header: '款号', width: 14 },
+      { key: 'lineName', header: '产线', width: 12, transform: (v) => String(v || '-') },
       { key: 'warehouseType', header: '仓库类型', width: 14, transform: (v) => whMap[String(v)] || String(v) },
       { key: 'packageSpec', header: '包装规格', width: 12 },
       { key: 'gradeA', header: '优等品(t)', width: 12 },

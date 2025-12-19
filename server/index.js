@@ -544,39 +544,59 @@ app.delete('/api/incidents/:id', asyncHandler((req, res) => {
 // ========== 数据备份与恢复 API ==========
 app.get('/api/backup', asyncHandler((req, res) => {
   const data = {
-    version: '1.0',
+    version: '2.0', // 版本升级，包含完整字段
     exportedAt: new Date().toISOString(),
-    orders: query('SELECT * FROM orders'),
-    inventory: query('SELECT * FROM inventory'),
-    production_lines: query('SELECT * FROM production_lines'),
-    styles: query('SELECT * FROM styles'),
-    incidents: query('SELECT * FROM incidents'),
-    inventory_transactions: query('SELECT * FROM inventory_transactions ORDER BY created_at DESC LIMIT 1000'),
-    style_change_logs: query('SELECT * FROM style_change_logs ORDER BY changed_at DESC LIMIT 500'),
+    orders: query('SELECT id, date, client, style_no, package_spec, pi_no, line_id, line_ids, bl_no, total_tons, containers, packages_per_container, port, contact_person, trade_type, requirements, status, is_large_order, large_order_ack, loading_time_slot, expected_ship_date, workshop_comm_status, workshop_note, prep_days_required, warehouse_allocation, created_at FROM orders'),
+    inventory: query('SELECT id, style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today, safety_stock, last_updated, line_id, line_name FROM inventory'),
+    production_lines: query('SELECT id, name, status, current_style, daily_capacity, export_capacity, note, style_changed_at, sub_lines FROM production_lines'),
+    styles: query('SELECT id, style_no, name, category, unit_weight, note, created_at FROM styles'),
+    incidents: query('SELECT id, timestamp, style_no, order_client, reported_by, reason, note, resolved, resolved_at FROM incidents'),
+    customers: query('SELECT id, name, contact_person, phone, email, address, note, created_at, updated_at FROM customers'),
+    inventory_transactions: query('SELECT id, style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id, created_at FROM inventory_transactions ORDER BY created_at DESC LIMIT 2000'),
+    inventory_audit_logs: query('SELECT id, style_no, warehouse_type, package_spec, line_id, line_name, action, before_grade_a, before_grade_b, after_grade_a, after_grade_b, reason, operator, created_at FROM inventory_audit_logs ORDER BY created_at DESC LIMIT 1000'),
+    style_change_logs: query('SELECT id, line_id, from_style, to_style, changed_at FROM style_change_logs ORDER BY changed_at DESC LIMIT 500'),
   };
   res.setHeader('Content-Disposition', `attachment; filename=syncflow_backup_${new Date().toISOString().split('T')[0]}.json`);
   res.json(data);
 }));
 
 app.post('/api/restore', asyncHandler((req, res) => {
-  const confirmToken = req.headers['x-confirm-restore']; // 安全验证：需要确认令牌
+  const confirmToken = req.headers['x-confirm-restore'];
   if (confirmToken !== 'CONFIRM_RESTORE') return res.status(403).json({ error: '危险操作：需要确认令牌', requiredHeader: 'X-Confirm-Restore: CONFIRM_RESTORE' });
   const data = req.body;
   if (!data.version || !data.orders) return res.status(400).json({ error: '无效的备份文件格式' });
-  withTransaction(() => { // 事务保护确保恢复操作原子性
+  const isV2 = data.version === '2.0'; // 检测版本
+  withTransaction(() => {
     const db = getDb();
     db.run('DELETE FROM orders');
     db.run('DELETE FROM inventory');
     db.run('DELETE FROM production_lines');
     db.run('DELETE FROM styles');
     db.run('DELETE FROM incidents');
-    data.orders?.forEach(o => runNoSave('INSERT INTO orders (id, date, client, style_no, pi_no, line_id, bl_no, total_tons, containers, packages_per_container, port, contact_person, trade_type, requirements, status, is_large_order, large_order_ack, loading_time_slot, expected_ship_date, workshop_comm_status, workshop_note, prep_days_required) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [o.id, o.date, o.client, o.style_no, o.pi_no, o.line_id, o.bl_no, o.total_tons, o.containers, o.packages_per_container, o.port, o.contact_person, o.trade_type, o.requirements, o.status, o.is_large_order, o.large_order_ack, o.loading_time_slot, o.expected_ship_date, o.workshop_comm_status, o.workshop_note, o.prep_days_required]));
-    data.inventory?.forEach(i => runNoSave('INSERT INTO inventory (id, style_no, current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today) VALUES (?, ?, ?, ?, ?, ?, ?)', [i.id, i.style_no, i.current_stock, i.grade_a, i.grade_b, i.stock_t_minus_1, i.locked_for_today]));
+    db.run('DELETE FROM customers');
+    db.run('DELETE FROM inventory_transactions');
+    db.run('DELETE FROM inventory_audit_logs');
+    db.run('DELETE FROM style_change_logs');
+    // 恢复订单（兼容v1和v2）
+    data.orders?.forEach(o => runNoSave('INSERT INTO orders (id, date, client, style_no, package_spec, pi_no, line_id, line_ids, bl_no, total_tons, containers, packages_per_container, port, contact_person, trade_type, requirements, status, is_large_order, large_order_ack, loading_time_slot, expected_ship_date, workshop_comm_status, workshop_note, prep_days_required, warehouse_allocation, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [o.id, o.date, o.client, o.style_no, o.package_spec || null, o.pi_no, o.line_id, o.line_ids || null, o.bl_no, o.total_tons, o.containers, o.packages_per_container, o.port, o.contact_person, o.trade_type, o.requirements, o.status, o.is_large_order, o.large_order_ack, o.loading_time_slot, o.expected_ship_date, o.workshop_comm_status, o.workshop_note, o.prep_days_required, o.warehouse_allocation || null, o.created_at || new Date().toISOString()]));
+    // 恢复库存（兼容v1和v2）
+    data.inventory?.forEach(i => runNoSave('INSERT INTO inventory (id, style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today, safety_stock, last_updated, line_id, line_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [i.id, i.style_no, i.warehouse_type || 'general', i.package_spec || '820kg', i.current_stock, i.grade_a || 0, i.grade_b || 0, i.stock_t_minus_1 || 0, i.locked_for_today || 0, i.safety_stock || 0, i.last_updated || new Date().toISOString(), i.line_id || null, i.line_name || null]));
+    // 恢复产线
     data.production_lines?.forEach(l => runNoSave('INSERT INTO production_lines (id, name, status, current_style, daily_capacity, export_capacity, note, style_changed_at, sub_lines) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [l.id, l.name, l.status, l.current_style, l.daily_capacity, l.export_capacity, l.note, l.style_changed_at, l.sub_lines]));
-    data.styles?.forEach(s => runNoSave('INSERT INTO styles (id, style_no, name, category, unit_weight, note) VALUES (?, ?, ?, ?, ?, ?)', [s.id, s.style_no, s.name, s.category, s.unit_weight, s.note]));
+    // 恢复款号
+    data.styles?.forEach(s => runNoSave('INSERT INTO styles (id, style_no, name, category, unit_weight, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [s.id, s.style_no, s.name, s.category, s.unit_weight, s.note, s.created_at || new Date().toISOString()]));
+    // 恢复异常日志
     data.incidents?.forEach(i => runNoSave('INSERT INTO incidents (id, timestamp, style_no, order_client, reported_by, reason, note, resolved, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [i.id, i.timestamp, i.style_no, i.order_client, i.reported_by, i.reason, i.note, i.resolved, i.resolved_at]));
+    // 恢复客户（v2新增）
+    data.customers?.forEach(c => runNoSave('INSERT INTO customers (id, name, contact_person, phone, email, address, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [c.id, c.name, c.contact_person, c.phone, c.email, c.address, c.note, c.created_at, c.updated_at]));
+    // 恢复库存流水（v2新增）
+    data.inventory_transactions?.forEach(t => runNoSave('INSERT INTO inventory_transactions (id, style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [t.id, t.style_no, t.warehouse_type, t.package_spec, t.type, t.grade, t.quantity, t.balance, t.source, t.note, t.order_id, t.created_at]));
+    // 恢复审计日志（v2新增）
+    data.inventory_audit_logs?.forEach(a => runNoSave('INSERT INTO inventory_audit_logs (id, style_no, warehouse_type, package_spec, line_id, line_name, action, before_grade_a, before_grade_b, after_grade_a, after_grade_b, reason, operator, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [a.id, a.style_no, a.warehouse_type, a.package_spec, a.line_id, a.line_name, a.action, a.before_grade_a, a.before_grade_b, a.after_grade_a, a.after_grade_b, a.reason, a.operator, a.created_at]));
+    // 恢复款号变更日志
+    data.style_change_logs?.forEach(l => runNoSave('INSERT INTO style_change_logs (id, line_id, from_style, to_style, changed_at) VALUES (?, ?, ?, ?, ?)', [l.id, l.line_id, l.from_style, l.to_style, l.changed_at]));
   });
-  res.json({ success: true, message: `已恢复 ${data.orders?.length || 0} 条订单, ${data.inventory?.length || 0} 条库存` });
+  res.json({ success: true, message: `已恢复: 订单${data.orders?.length || 0}条, 库存${data.inventory?.length || 0}条, 客户${data.customers?.length || 0}条` });
 }));
 
 // 全局错误处理
@@ -599,18 +619,19 @@ const performBackup = () => {
   try {
     if (!existsSync(BACKUP_DIR)) mkdirSync(BACKUP_DIR, { recursive: true });
     const data = {
-      version: '1.0',
+      version: '2.0',
       exportedAt: new Date().toISOString(),
-      orders: query('SELECT * FROM orders'),
-      inventory: query('SELECT * FROM inventory'),
-      production_lines: query('SELECT * FROM production_lines'),
-      styles: query('SELECT * FROM styles'),
-      incidents: query('SELECT * FROM incidents'),
+      orders: query('SELECT id, date, client, style_no, package_spec, pi_no, line_id, line_ids, bl_no, total_tons, containers, packages_per_container, port, contact_person, trade_type, requirements, status, is_large_order, large_order_ack, loading_time_slot, expected_ship_date, workshop_comm_status, workshop_note, prep_days_required, warehouse_allocation, created_at FROM orders'),
+      inventory: query('SELECT id, style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today, safety_stock, last_updated, line_id, line_name FROM inventory'),
+      production_lines: query('SELECT id, name, status, current_style, daily_capacity, export_capacity, note, style_changed_at, sub_lines FROM production_lines'),
+      styles: query('SELECT id, style_no, name, category, unit_weight, note, created_at FROM styles'),
+      incidents: query('SELECT id, timestamp, style_no, order_client, reported_by, reason, note, resolved, resolved_at FROM incidents'),
+      customers: query('SELECT id, name, contact_person, phone, email, address, note, created_at, updated_at FROM customers'),
     };
     const filename = `backup_${new Date().toISOString().split('T')[0]}.json`;
     writeFileSync(join(BACKUP_DIR, filename), JSON.stringify(data, null, 2));
     console.log(`[Auto Backup] 备份成功: ${filename}`);
-    cleanOldBackups(); // 清理旧备份
+    cleanOldBackups();
   } catch (e) { console.error('[Auto Backup] 备份失败:', e.message); }
 };
 

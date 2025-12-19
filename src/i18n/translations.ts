@@ -94,7 +94,9 @@ export const translations = {
     data_management: "Data Management", export_backup: "Export Backup", restore_backup: "Restore Backup", exporting: "Exporting...", restoring: "Restoring...",
     backup_downloaded: "Backup file downloaded", export_failed: "Export failed", restore_failed: "Restore failed",
     backup_desc: "Backup includes all orders, inventory, lines, styles and incident records",
-    shortcuts: "Shortcuts", shortcut_switch_page: "Switch Page", shortcut_dark_mode: "Toggle Dark Mode", shortcut_ai_assistant: "Open AI Assistant",
+    shortcuts: "Shortcuts", shortcut_switch_page: "Switch Page", shortcut_dark_mode: "Toggle Dark Mode", shortcut_ai_assistant: "Open AI Assistant", shortcut_settings: "Open Settings",
+    hotkey_dashboard: "Dashboard", hotkey_orders: "Order Mgmt", hotkey_production: "Production", hotkey_warehouse: "Warehouse", hotkey_help: "Help", hotkey_theme: "Toggle Theme", hotkey_ai: "AI Assistant", hotkey_settings: "Settings",
+    hotkey_edit: "Edit", hotkey_recording: "Press keys...", hotkey_conflict: "Conflict", hotkey_reset: "Reset All", hotkey_reset_confirm: "Reset all shortcuts to default?", hotkey_saved: "Shortcut saved",
     // AI Assistant
     ai_assistant: "AI Assistant", quick_analysis: "Quick Analysis", production_suggestion: "Production Suggestion", inventory_analysis: "Inventory Analysis",
     incident_analysis: "Incident Analysis", shipping_priority: "Shipping Priority", analysis_failed: "Analysis failed. Please check API config or try again later.",
@@ -253,7 +255,9 @@ export const translations = {
     data_management: "数据管理", export_backup: "导出备份", restore_backup: "恢复备份", exporting: "导出中...", restoring: "恢复中...",
     backup_downloaded: "备份文件已下载", export_failed: "导出失败", restore_failed: "恢复失败",
     backup_desc: "备份包含所有订单、库存、产线、款号和异常记录数据",
-    shortcuts: "快捷键", shortcut_switch_page: "切换页面", shortcut_dark_mode: "切换深色模式", shortcut_ai_assistant: "打开AI助手",
+    shortcuts: "快捷键", shortcut_switch_page: "切换页面", shortcut_dark_mode: "切换深色模式", shortcut_ai_assistant: "打开AI助手", shortcut_settings: "打开设置",
+    hotkey_dashboard: "仪表盘", hotkey_orders: "订单管理", hotkey_production: "排产控制", hotkey_warehouse: "仓库作业", hotkey_help: "使用指南", hotkey_theme: "切换主题", hotkey_ai: "AI助手", hotkey_settings: "设置",
+    hotkey_edit: "编辑", hotkey_recording: "请按键...", hotkey_conflict: "冲突", hotkey_reset: "重置全部", hotkey_reset_confirm: "确定重置所有快捷键为默认值？", hotkey_saved: "快捷键已保存",
     // AI Assistant
     ai_assistant: "AI 助手", quick_analysis: "快捷分析", production_suggestion: "排产建议", inventory_analysis: "库存分析",
     incident_analysis: "异常分析", shipping_priority: "发货排序", analysis_failed: "分析失败，请检查API配置或稍后重试。",

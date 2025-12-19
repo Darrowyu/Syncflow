@@ -1,7 +1,7 @@
-import React, { useState, useEffect, lazy, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, lazy, Suspense, useMemo } from 'react';
 import { LayoutDashboard, ShoppingCart, Factory, Menu, X, Globe, Container, Loader2, Maximize, Minimize, HelpCircle, Sparkles, ArrowRight, Bot, Moon, Sun, Settings } from 'lucide-react';
 import { Logo, ErrorBoundary, ToastContainer, SettingsPanel } from './components/common';
-import { useData, useFullscreen, useIsMobile } from './hooks';
+import { useData, useFullscreen, useIsMobile, useHotkeys, HotkeyAction } from './hooks';
 import { useLanguage } from './i18n';
 import { useTheme } from './context/ThemeContext';
 import { IncidentLog } from './types';
@@ -42,26 +42,18 @@ function App(): React.ReactElement {
   const { isFullscreen, toggleFullscreen } = useFullscreen();
   const { isDark, toggleTheme } = useTheme();
 
-  const handleKeyPress = useCallback((e: KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    if (e.altKey) {
-      switch (e.key) {
-        case '1': setActiveTab(Tab.DASHBOARD); break;
-        case '2': setActiveTab(Tab.ORDERS); break;
-        case '3': setActiveTab(Tab.PRODUCTION); break;
-        case '4': setActiveTab(Tab.WAREHOUSE); break;
-        case '5': setActiveTab(Tab.HELP); break;
-        case 'd': toggleTheme(); break;
-        case 'a': setShowAI(prev => !prev); break;
-        case 's': setShowSettings(prev => !prev); break;
-      }
-    }
-  }, [toggleTheme]);
+  const hotkeyHandlers = useMemo<Partial<Record<HotkeyAction, () => void>>>(() => ({ // 快捷键处理器
+    dashboard: () => setActiveTab(Tab.DASHBOARD),
+    orders: () => setActiveTab(Tab.ORDERS),
+    production: () => setActiveTab(Tab.PRODUCTION),
+    warehouse: () => setActiveTab(Tab.WAREHOUSE),
+    help: () => setActiveTab(Tab.HELP),
+    toggleTheme,
+    toggleAI: () => setShowAI(prev => !prev),
+    toggleSettings: () => setShowSettings(prev => !prev),
+  }), [toggleTheme]);
 
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [handleKeyPress]);
+  const { hotkeys, updateHotkey, resetHotkeys, formatHotkey } = useHotkeys(hotkeyHandlers);
 
   const renderContent = (): React.ReactElement => {
     if (loading) return <PageLoader />;
@@ -138,27 +130,27 @@ function App(): React.ReactElement {
         {/* 移动端抽屉式侧边栏 */}
         {isMobile && isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setIsSidebarOpen(false)} />}
         {isMobile && (
-          <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-white transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-            <div className="p-5 flex items-center justify-between border-b border-slate-800">
+          <aside className={`fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800 shadow-xl'}`}>
+            <div className={`p-5 flex items-center justify-between border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
               <div className="flex items-center">
                 <Logo size={32} />
-                <span className="ml-2 font-bold text-xl bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">SyncFlow</span>
+                <span className="ml-2 font-bold text-xl bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">SyncFlow</span>
               </div>
-              <button onClick={() => setIsSidebarOpen(false)} className="p-1 text-slate-400 hover:text-white"><X size={22} /></button>
+              <button onClick={() => setIsSidebarOpen(false)} className={`p-1 ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'}`}><X size={22} /></button>
             </div>
             <nav className="p-4 space-y-2">
               {navItems.map(({ tab, icon, label }) => (
-                <button key={tab} onClick={() => { setActiveTab(tab); setIsSidebarOpen(false); }} className={`w-full flex items-center py-3 px-4 rounded-xl transition ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                <button key={tab} onClick={() => { setActiveTab(tab); setIsSidebarOpen(false); }} className={`w-full flex items-center py-3 px-4 rounded-xl transition ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg' : isDark ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'}`}>
                   <span className="mr-3">{icon}</span><span>{label}</span>
                 </button>
               ))}
             </nav>
-            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-800">
-              <button onClick={() => { setLanguage(language === 'en' ? 'zh' : 'en'); }} className="w-full flex items-center justify-center py-2.5 bg-slate-800 rounded-lg text-slate-300 text-sm">
+            <div className={`absolute bottom-0 left-0 right-0 p-4 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+              <button onClick={() => { setLanguage(language === 'en' ? 'zh' : 'en'); }} className={`w-full flex items-center justify-center py-2.5 rounded-lg text-sm ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                 <Globe size={16} className="mr-2" />{language === 'en' ? 'English' : '中文'}
               </button>
-              <div className="mt-3 flex items-center justify-center text-xs text-green-400">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></span>{t('status_synced')}
+              <div className="mt-3 flex items-center justify-center text-xs text-green-500">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></span>{t('status_synced')}
               </div>
             </div>
           </aside>
@@ -166,27 +158,27 @@ function App(): React.ReactElement {
 
         {/* 桌面端侧边栏 */}
         {!isMobile && (
-          <aside className={`relative bg-slate-900 text-white transition-all duration-300 ease-in-out flex flex-col ${isFullscreen ? 'w-16' : 'w-64'}`}>
-            <div className={`whitespace-nowrap overflow-hidden transition-all duration-300 ${isFullscreen ? 'p-4 px-2' : 'p-6'}`}>
-              <div className={`flex items-center transition-all duration-300 ${isFullscreen ? 'justify-center' : ''}`}>
+          <aside className={`relative transition-[width] duration-300 ease-in-out flex flex-col ${isFullscreen ? 'w-16' : 'w-64'} ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-800 border-r border-slate-200'}`}>
+            <div className={`whitespace-nowrap overflow-hidden transition-[padding] duration-300 ${isFullscreen ? 'p-4 px-2' : 'p-6'}`}>
+              <div className={`flex items-center ${isFullscreen ? 'justify-center' : ''}`}>
                 <Logo size={isFullscreen ? 32 : 36} className="flex-shrink-0" />
-                <h1 className={`font-bold tracking-tight bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent transition-all duration-300 ${isFullscreen ? 'opacity-0 w-0 ml-0' : 'opacity-100 w-auto ml-3 text-2xl'}`}>SyncFlow</h1>
+                <h1 className={`font-bold tracking-tight bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent transition-[opacity,width,margin] duration-300 ${isFullscreen ? 'opacity-0 w-0 ml-0' : 'opacity-100 w-auto ml-3 text-2xl'}`}>SyncFlow</h1>
               </div>
-              <p className={`text-xs text-slate-400 mt-1 transition-all duration-300 ${isFullscreen ? 'opacity-0 max-h-0 mt-0' : 'opacity-100 max-h-6'}`}>{t('app_subtitle')}</p>
+              <p className={`text-xs mt-1 transition-[opacity,max-height,margin] duration-300 ${isFullscreen ? 'opacity-0 max-h-0 mt-0' : 'opacity-100 max-h-6'} ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t('app_subtitle')}</p>
             </div>
-            <nav className={`mt-6 space-y-2 transition-all duration-300 ${isFullscreen ? 'px-2' : 'px-4'}`}>
+            <nav className={`mt-6 space-y-2 transition-[padding] duration-300 ${isFullscreen ? 'px-2' : 'px-4'}`}>
               {navItems.map(({ tab, icon, label }) => (
-                <button key={tab} onClick={() => setActiveTab(tab)} title={label} className={`w-full flex items-center whitespace-nowrap overflow-hidden py-3 rounded-xl transition-all duration-300 ${isFullscreen ? 'justify-center px-2' : 'px-4'} ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                  <span className={`flex-shrink-0 transition-all duration-300 ${isFullscreen ? 'mr-0' : 'mr-3'}`}>{icon}</span>
-                  <span className={`truncate transition-all duration-300 ${isFullscreen ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>{label}</span>
+                <button key={tab} onClick={() => setActiveTab(tab)} title={label} className={`w-full flex items-center whitespace-nowrap overflow-hidden py-3 rounded-xl transition-[padding] duration-300 ${isFullscreen ? 'justify-center px-2' : 'px-4'} ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : isDark ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'}`}>
+                  <span className={`flex-shrink-0 ${isFullscreen ? 'mr-0' : 'mr-3'}`}>{icon}</span>
+                  <span className={`truncate ${isFullscreen ? 'hidden' : 'block'}`}>{label}</span>
                 </button>
               ))}
             </nav>
             <div className={`mt-auto overflow-hidden transition-[padding] duration-300 ${isFullscreen ? 'px-2 pb-4' : 'px-6 pb-6'}`}>
-              <div className={`bg-slate-800 rounded-xl transition-[padding] duration-300 overflow-hidden ${isFullscreen ? 'p-2' : 'p-4'}`}>
-                <h4 className={`text-sm font-medium text-white transition-[opacity,max-height,margin] duration-300 ${isFullscreen ? 'opacity-0 max-h-0 mb-0' : 'opacity-100 max-h-6 mb-1'}`}>{t('system_status')}</h4>
-                <div className={`flex items-center text-xs ${isFullscreen ? 'justify-center' : ''} ${error ? 'text-red-400' : 'text-green-400'}`}>
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${error ? 'bg-red-400' : 'bg-green-400 animate-pulse'}`}></span>
+              <div className={`rounded-xl transition-[padding] duration-300 overflow-hidden ${isFullscreen ? 'p-2' : 'p-4'} ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                <h4 className={`text-sm font-medium transition-[opacity,max-height,margin] duration-300 ${isFullscreen ? 'opacity-0 max-h-0 mb-0' : 'opacity-100 max-h-6 mb-1'} ${isDark ? 'text-white' : 'text-slate-700'}`}>{t('system_status')}</h4>
+                <div className={`flex items-center text-xs ${isFullscreen ? 'justify-center' : ''} ${error ? 'text-red-500' : 'text-green-500'}`}>
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${error ? 'bg-red-500' : 'bg-green-500 animate-pulse'}`}></span>
                   <span className={`transition-[opacity,width,margin] duration-300 whitespace-nowrap overflow-hidden ${isFullscreen ? 'opacity-0 w-0 ml-0' : 'opacity-100 w-auto ml-2'}`}>
                     {error ? t('status_error') : lastSyncTime ? `${t('last_sync')}: ${lastSyncTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}` : t('status_synced')}
                   </span>
@@ -236,7 +228,7 @@ function App(): React.ReactElement {
           </button>
         )}
         {showAI && <Suspense fallback={null}><AIAssistant orders={orders} lines={lines} inventory={inventory} incidents={incidents} onClose={() => setShowAI(false)} /></Suspense>}
-        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} hotkeys={hotkeys} updateHotkey={updateHotkey} resetHotkeys={resetHotkeys} formatHotkey={formatHotkey} />}
       </div>
     </ErrorBoundary>
   );

@@ -112,7 +112,7 @@ interface StyleChangeLog { id: number; lineId: number; fromStyle: string; toStyl
 export const fetchStyleLogs = (lineId?: number) => request<StyleChangeLog[]>(lineId ? `/style-logs/${lineId}` : '/style-logs');
 
 // 数据备份与恢复
-interface BackupData { version: string; exportedAt: string; orders: any[]; inventory: any[]; production_lines: any[]; styles: any[]; incidents: any[] }
+interface BackupData { version: string; exportedAt: string; orders: unknown[]; inventory: unknown[]; production_lines: unknown[]; styles: unknown[]; incidents: unknown[]; customers?: unknown[]; inventory_transactions?: unknown[]; inventory_audit_logs?: unknown[]; style_change_logs?: unknown[] }
 interface RestoreResponse { success: true; message: string }
 export const fetchBackup = () => request<BackupData>('/backup');
 export const restoreBackup = (data: BackupData) => request<RestoreResponse>('/restore', { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json', 'X-Confirm-Restore': 'CONFIRM_RESTORE' } });

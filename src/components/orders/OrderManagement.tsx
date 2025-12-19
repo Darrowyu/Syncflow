@@ -13,10 +13,21 @@ import OrderCalendar from './OrderCalendar';
 import PrintPackingList from '../common/PrintPackingList';
 import CustomerManagement from './CustomerManagement';
 
-interface FulfillmentPopoverProps { order: Order; inventory: InventoryItem[]; t: (k: string) => string; onClose: () => void; onSave: (alloc: WarehouseAllocation) => void; }
-const FulfillmentPopover: React.FC<FulfillmentPopoverProps> = ({ order, inventory, t, onClose, onSave }) => {
-  const generalItems = inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === 'general');
-  const bondedItems = inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === 'bonded');
+interface FulfillmentPopoverProps { order: Order; inventory: InventoryItem[]; lines: ProductLine[]; t: (k: string) => string; onClose: () => void; onSave: (alloc: WarehouseAllocation) => void; }
+const FulfillmentPopover: React.FC<FulfillmentPopoverProps> = ({ order, inventory, lines, t, onClose, onSave }) => {
+  // 解析订单产线ID
+  const orderLineIds = useMemo(() => {
+    if (order.lineIds) return order.lineIds.split(/[\/,]/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+    if (order.lineId) return [order.lineId];
+    return []; // 空数组表示不限产线
+  }, [order.lineIds, order.lineId]);
+  // 按产线筛选库存
+  const filterByLine = (items: InventoryItem[]): InventoryItem[] => {
+    if (orderLineIds.length === 0) return items; // 未指定产线，显示全部
+    return items.filter(i => i.lineId && orderLineIds.includes(i.lineId));
+  };
+  const generalItems = filterByLine(inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === 'general'));
+  const bondedItems = filterByLine(inventory.filter(i => i.styleNo === order.styleNo && i.warehouseType === 'bonded'));
   const generalStock = generalItems.reduce((sum, i) => sum + i.currentStock, 0);
   const bondedStock = bondedItems.reduce((sum, i) => sum + i.currentStock, 0);
   const initAlloc = order.warehouseAllocation || { general: order.tradeType === TradeType.GENERAL ? order.totalTons : 0, bonded: order.tradeType === TradeType.BONDED ? order.totalTons : 0 };
@@ -48,9 +59,12 @@ const FulfillmentPopover: React.FC<FulfillmentPopoverProps> = ({ order, inventor
         </div>
       </div>
       <div className="border-t border-slate-100 dark:border-slate-700 pt-2 space-y-1">
-        <div className="text-slate-400">{t('stock_detail')}:</div>
-        {generalItems.length > 0 && <div className="pl-2">{generalItems.map((item, i) => <div key={i} className="flex justify-between text-slate-500"><span>{t('wh_general')} {item.packageSpec}</span><span className="font-mono">{item.currentStock.toFixed(1)}t</span></div>)}</div>}
-        {bondedItems.length > 0 && <div className="pl-2">{bondedItems.map((item, i) => <div key={i} className="flex justify-between text-slate-500"><span>{t('wh_bonded')} {item.packageSpec}</span><span className="font-mono">{item.currentStock.toFixed(1)}t</span></div>)}</div>}
+        <div className="flex justify-between items-center">
+          <span className="text-slate-400">{t('stock_detail')}:</span>
+          {orderLineIds.length > 0 && <span className="text-[10px] text-blue-500">{t('line_filter')}: {orderLineIds.map(id => lines.find(l => l.id === id)?.name || `#${id}`).join('/')}</span>}
+        </div>
+        {generalItems.length > 0 && <div className="pl-2">{generalItems.map(item => <div key={`${item.styleNo}-${item.warehouseType}-${item.packageSpec}-${item.lineId}`} className="flex justify-between text-slate-500"><span>{t('wh_general')} {item.packageSpec} {item.lineName && <span className="text-blue-400">({item.lineName})</span>}</span><span className="font-mono">{item.currentStock.toFixed(1)}t</span></div>)}</div>}
+        {bondedItems.length > 0 && <div className="pl-2">{bondedItems.map(item => <div key={`${item.styleNo}-${item.warehouseType}-${item.packageSpec}-${item.lineId}`} className="flex justify-between text-slate-500"><span>{t('wh_bonded')} {item.packageSpec} {item.lineName && <span className="text-blue-400">({item.lineName})</span>}</span><span className="font-mono">{item.currentStock.toFixed(1)}t</span></div>)}</div>}
         {generalItems.length === 0 && bondedItems.length === 0 && <div className="text-slate-400 italic pl-2">{t('no_stock')}</div>}
       </div>
       <button onClick={() => onSave(alloc)} disabled={!isValid || !canFulfill} className="w-full py-1.5 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">{t('btn_save_alloc')}</button>
@@ -844,7 +858,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                               <div className="w-16 bg-slate-200 dark:bg-slate-600 rounded-full h-2"><div className={`h-2 rounded-full ${isShortage ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(percent, 100)}%` }} /></div>
                               <span className={`text-xs ${isShortage ? 'text-red-500 font-bold' : 'text-green-600 dark:text-green-400'}`}>{percent.toFixed(0)}%</span>
                             </div>
-                            {fulfillmentDetailId === order.id && <FulfillmentPopover order={order} inventory={inventory} t={t} onClose={() => setFulfillmentDetailId(null)} onSave={(alloc) => { patchOrder(order.id, { warehouseAllocation: alloc }).then(() => { setOrders(prev => prev.map(o => o.id === order.id ? { ...o, warehouseAllocation: alloc } : o)); toast.success(t('toast_order_saved')); }).catch(() => toast.error(t('alert_save_fail'))); }} />}
+                            {fulfillmentDetailId === order.id && <FulfillmentPopover order={order} inventory={inventory} lines={lines} t={t} onClose={() => setFulfillmentDetailId(null)} onSave={(alloc) => { patchOrder(order.id, { warehouseAllocation: alloc }).then(() => { setOrders(prev => prev.map(o => o.id === order.id ? { ...o, warehouseAllocation: alloc } : o)); toast.success(t('toast_order_saved')); }).catch(() => toast.error(t('alert_save_fail'))); }} />}
                           </>
                         )}
                       </td>

@@ -110,7 +110,7 @@ export const translations = {
     field_contact: "Contact", field_trade_type: "Trade Type", field_loading_time: "Loading Time", field_ship_date: "Expected Ship Date",
     field_prep_days: "Prep Days Required", field_requirements: "Requirements", btn_save: "Save Changes",
     alert_status_100: "Fulfillment rate below 100%, cannot switch to this status", alert_status_fail: "Status update failed", alert_save_fail: "Save failed",
-    available_stock: "Available Stock", stock_shortage: "Shortage", stock_detail: "Stock Detail", no_stock: "No matching stock", wh_allocation: "Warehouse Allocation", total_alloc: "Allocated", still_need: "still need", btn_save_alloc: "Save Allocation",
+    available_stock: "Available Stock", stock_shortage: "Shortage", stock_detail: "Stock Detail", no_stock: "No matching stock", wh_allocation: "Warehouse Allocation", total_alloc: "Allocated", still_need: "still need", btn_save_alloc: "Save Allocation", line_filter: "Line Filter",
     alert_delete_confirm: "Are you sure you want to delete this order?", alert_delete_fail: "Delete failed", alert_excel_fail: "Excel file parsing failed, please check format",
     lines_suffix: "Line",
     // AI Settings
@@ -269,7 +269,7 @@ export const translations = {
     field_contact: "对接人", field_trade_type: "贸易类型", field_loading_time: "装货时段", field_ship_date: "预计发货日",
     field_prep_days: "提前备货天数", field_requirements: "装货要求", btn_save: "保存修改",
     alert_status_100: "满足率不足100%，无法切换到此状态", alert_status_fail: "状态更新失败", alert_save_fail: "保存失败",
-    available_stock: "可用库存", stock_shortage: "缺口", stock_detail: "库存明细", no_stock: "无匹配库存", wh_allocation: "仓库分配", total_alloc: "已分配", still_need: "还需", btn_save_alloc: "保存分配",
+    available_stock: "可用库存", stock_shortage: "缺口", stock_detail: "库存明细", no_stock: "无匹配库存", wh_allocation: "仓库分配", total_alloc: "已分配", still_need: "还需", btn_save_alloc: "保存分配", line_filter: "产线筛选",
     alert_delete_confirm: "确定要删除此订单吗？", alert_delete_fail: "删除失败", alert_excel_fail: "Excel文件解析失败，请确保格式正确",
     lines_suffix: "线",
     // AI Settings

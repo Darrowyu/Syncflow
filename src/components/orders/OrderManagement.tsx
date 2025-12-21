@@ -824,17 +824,17 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
           <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-slate-700">
               <tr>
-                <th className="px-3 py-3 text-left w-8">#</th>
-                <th className="px-3 py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('date', e)}>{t('table_date')}{getSortIcon('date')}</th>
-                <th className="px-3 py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('client', e)}>{t('table_client')}{getSortIcon('client')}</th>
-                <th className="px-3 py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('styleNo', e)}>{t('table_style')}{getSortIcon('styleNo')}</th>
-                <th className="px-3 py-3 text-center">{t('field_spec')}</th>
-                <th className="px-3 py-3 text-right cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('totalTons', e)}>{t('table_total')}{getSortIcon('totalTons')}</th>
-                <th className="px-3 py-3 text-center">{t('table_containers')}</th>
-                <th className="px-3 py-3 text-left">{t('table_port')}</th>
-                <th className="px-3 py-3 text-left">{t('workshop_status')}</th>
-                <th className="px-3 py-3 text-left">{t('table_fulfillment')}</th>
-                <th className="px-3 py-3 text-center">{t('table_actions')}</th>
+                <th className="px-2 xl:px-3 py-2 xl:py-3 text-left w-8">#</th>
+                <th className="px-2 xl:px-3 py-2 xl:py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('date', e)}>{t('table_date')}{getSortIcon('date')}</th>
+                <th className="px-2 xl:px-3 py-2 xl:py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('client', e)}>{t('table_client')}{getSortIcon('client')}</th>
+                <th className="px-2 xl:px-3 py-2 xl:py-3 text-left cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('styleNo', e)}>{t('table_style')}{getSortIcon('styleNo')}</th>
+                <th className="px-2 xl:px-3 py-2 xl:py-3 text-center">{t('field_spec')}</th>
+                <th className="px-2 xl:px-3 py-2 xl:py-3 text-right cursor-pointer hover:text-blue-600 select-none" title={t('sort_hint')} onClick={(e) => handleSort('totalTons', e)}>{t('table_total')}{getSortIcon('totalTons')}</th>
+                <th className="px-2 xl:px-3 py-2 xl:py-3 text-center">{t('table_containers')}</th>
+                <th className="hidden xl:table-cell px-2 xl:px-3 py-2 xl:py-3 text-left">{t('table_port')}</th>
+                <th className="px-2 xl:px-3 py-2 xl:py-3 text-left">{t('workshop_status')}</th>
+                <th className="px-2 xl:px-3 py-2 xl:py-3 text-left">{t('table_fulfillment')}</th>
+                <th className="px-2 xl:px-3 py-2 xl:py-3 text-center">{t('table_actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -847,44 +847,44 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
                 return (
                   <React.Fragment key={order.id}>
                     <tr className={`hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer`} onClick={() => setExpandedId(isExpanded ? null : order.id)}>
-                      <td className="px-3 py-3 text-slate-400 dark:text-slate-500">{idx + 1}</td>
-                      <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{order.date}</td>
-                      <td className="px-3 py-3">
-                        <div className="font-semibold text-slate-800 dark:text-slate-100">{order.client}</div>
+                      <td className="px-2 xl:px-3 py-2 xl:py-3 text-slate-400 dark:text-slate-500">{idx + 1}</td>
+                      <td className="px-2 xl:px-3 py-2 xl:py-3 text-slate-600 dark:text-slate-300 text-xs xl:text-sm">{order.date}</td>
+                      <td className="px-2 xl:px-3 py-2 xl:py-3">
+                        <div className="font-semibold text-slate-800 dark:text-slate-100 text-xs xl:text-sm truncate max-w-[120px] xl:max-w-none">{order.client}</div>
                         {order.isLargeOrder && <span className="text-xs bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 px-1 rounded">{t('tag_large')}</span>}
                       </td>
-                      <td className="px-3 py-3">
-                        <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded text-xs font-mono">{order.styleNo}</span>
-                        {(order.lineIds || order.lineId) && <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">{order.lineIds || order.lineId}{t('lines_suffix')}</span>}
+                      <td className="px-2 xl:px-3 py-2 xl:py-3">
+                        <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-1.5 xl:px-2 py-0.5 rounded text-xs font-mono">{order.styleNo}</span>
+                        {(order.lineIds || order.lineId) && <span className="ml-1 px-1 xl:px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">{order.lineIds || order.lineId}{t('lines_suffix')}</span>}
                       </td>
-                      <td className="px-3 py-3 text-center">{order.packageSpec ? <span className="px-1.5 py-0.5 rounded text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">{order.packageSpec}</span> : <select onChange={(e) => { e.stopPropagation(); const spec = e.target.value as PackageSpec; if (!spec) return; patchOrder(order.id, { packageSpec: spec }).then(() => setOrders(prev => prev.map(o => o.id === order.id ? { ...o, packageSpec: spec } : o))).catch(() => toast.error(t('alert_save_fail'))); }} onClick={(e) => e.stopPropagation()} className="px-1.5 py-0.5 rounded text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 border-none cursor-pointer"><option value="">-</option><option value={PackageSpec.KG820}>820kg</option><option value={PackageSpec.KG750}>750kg</option><option value={PackageSpec.KG25}>25kg</option></select>}</td>
-                      <td className="px-3 py-3 text-right font-mono font-medium text-slate-800 dark:text-slate-100">{order.totalTons.toFixed(2)}</td>
-                      <td className="px-3 py-3 text-center text-slate-700 dark:text-slate-300">{order.containers}</td>
-                      <td className="px-3 py-3 text-slate-600 dark:text-slate-300">{order.port}</td>
-                      <td className="px-3 py-3">
-                        <select value={order.status} onChange={(e) => { e.stopPropagation(); handleUpdateStatus(order.id, e.target.value as OrderStatus, percent); }} onClick={(e) => e.stopPropagation()} className={`px-2 py-0.5 rounded text-xs border-none cursor-pointer ${getStatusColor(order.status)}`}>
+                      <td className="px-2 xl:px-3 py-2 xl:py-3 text-center">{order.packageSpec ? <span className="px-1 xl:px-1.5 py-0.5 rounded text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">{order.packageSpec}</span> : <select onChange={(e) => { e.stopPropagation(); const spec = e.target.value as PackageSpec; if (!spec) return; patchOrder(order.id, { packageSpec: spec }).then(() => setOrders(prev => prev.map(o => o.id === order.id ? { ...o, packageSpec: spec } : o))).catch(() => toast.error(t('alert_save_fail'))); }} onClick={(e) => e.stopPropagation()} className="px-1 xl:px-1.5 py-0.5 rounded text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 border-none cursor-pointer"><option value="">-</option><option value={PackageSpec.KG820}>820kg</option><option value={PackageSpec.KG750}>750kg</option><option value={PackageSpec.KG25}>25kg</option></select>}</td>
+                      <td className="px-2 xl:px-3 py-2 xl:py-3 text-right font-mono font-medium text-slate-800 dark:text-slate-100 text-xs xl:text-sm">{order.totalTons.toFixed(2)}</td>
+                      <td className="px-2 xl:px-3 py-2 xl:py-3 text-center text-slate-700 dark:text-slate-300">{order.containers}</td>
+                      <td className="hidden xl:table-cell px-2 xl:px-3 py-2 xl:py-3 text-slate-600 dark:text-slate-300 text-xs xl:text-sm">{order.port}</td>
+                      <td className="px-2 xl:px-3 py-2 xl:py-3">
+                        <select value={order.status} onChange={(e) => { e.stopPropagation(); handleUpdateStatus(order.id, e.target.value as OrderStatus, percent); }} onClick={(e) => e.stopPropagation()} className={`px-1.5 xl:px-2 py-0.5 rounded text-xs border-none cursor-pointer ${getStatusColor(order.status)}`}>
                           <option value={OrderStatus.PENDING}>{t('status_pending')}</option>
                           <option value={OrderStatus.IN_PRODUCTION}>{t('status_in_production')}</option>
                           <option value={OrderStatus.READY_TO_SHIP} disabled={percent < 100}>{t('status_ready_to_ship')}</option>
                           <option value={OrderStatus.SHIPPED} disabled={percent < 100}>{t('status_shipped')}</option>
                         </select>
                       </td>
-                      <td className="px-3 py-3 relative">
+                      <td className="px-2 xl:px-3 py-2 xl:py-3 relative">
                         {isShipped ? (
                           <span className="text-slate-400">-</span>
                         ) : isReadyToShip ? (
-                          <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-1 rounded inline-flex items-center"><Lock size={12} className="mr-1" />{t('status_locked')}</span>
+                          <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-1.5 xl:px-2 py-1 rounded inline-flex items-center"><Lock size={12} className="mr-1" />{t('status_locked')}</span>
                         ) : (
                           <>
-                            <div className="flex items-center space-x-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); setFulfillmentDetailId(fulfillmentDetailId === order.id ? null : order.id); }}>
-                              <div className="w-16 bg-slate-200 dark:bg-slate-600 rounded-full h-2"><div className={`h-2 rounded-full ${isShortage ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(percent, 100)}%` }} /></div>
+                            <div className="flex items-center space-x-1 xl:space-x-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); setFulfillmentDetailId(fulfillmentDetailId === order.id ? null : order.id); }}>
+                              <div className="w-12 xl:w-16 bg-slate-200 dark:bg-slate-600 rounded-full h-2"><div className={`h-2 rounded-full ${isShortage ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(percent, 100)}%` }} /></div>
                               <span className={`text-xs ${isShortage ? 'text-red-500 font-bold' : 'text-green-600 dark:text-green-400'}`}>{percent.toFixed(0)}%</span>
                             </div>
                             {fulfillmentDetailId === order.id && <FulfillmentPopover order={order} inventory={inventory} lines={lines} t={t} onClose={() => setFulfillmentDetailId(null)} onSave={(alloc) => { patchOrder(order.id, { warehouseAllocation: alloc }).then(() => { setOrders(prev => prev.map(o => o.id === order.id ? { ...o, warehouseAllocation: alloc } : o)); toast.success(t('toast_order_saved')); }).catch(() => toast.error(t('alert_save_fail'))); }} />}
                           </>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-center">
+                      <td className="px-2 xl:px-3 py-2 xl:py-3 text-center">
                         <div className="flex items-center justify-center space-x-1">
                           {isUrgent && (
                             <button onClick={(e) => { e.stopPropagation(); onAcknowledgeOrder(order.id); }} className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded text-xs font-semibold animate-pulse inline-flex items-center"><AlertCircle size={10} className="mr-0.5" />{t('btn_ack_large')}</button>
@@ -917,10 +917,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ orders, inventory, li
             </tbody>
             <tfoot className="bg-slate-100 dark:bg-slate-900 border-t-2 border-slate-300 dark:border-slate-600">
               <tr>
-                <td className="px-3 py-3 text-slate-500 dark:text-slate-400 font-medium" colSpan={5}>{t('total_summary')} ({displayOrders.length} {t('order_unit')})</td>
-                <td className="px-3 py-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100">{displayOrders.reduce((sum, o) => sum + o.totalTons, 0).toFixed(2)}</td>
-                <td className="px-3 py-3 text-center font-mono font-medium text-slate-700 dark:text-slate-300">{displayOrders.reduce((sum, o) => sum + o.containers, 0)}</td>
-                <td className="bg-slate-100 dark:bg-slate-900" colSpan={4}></td>
+                <td className="px-2 xl:px-3 py-2 xl:py-3 text-slate-500 dark:text-slate-400 font-medium text-xs xl:text-sm" colSpan={5}>{t('total_summary')} ({displayOrders.length} {t('order_unit')})</td>
+                <td className="px-2 xl:px-3 py-2 xl:py-3 text-right font-mono font-bold text-slate-800 dark:text-slate-100 text-xs xl:text-sm">{displayOrders.reduce((sum, o) => sum + o.totalTons, 0).toFixed(2)}</td>
+                <td className="px-2 xl:px-3 py-2 xl:py-3 text-center font-mono font-medium text-slate-700 dark:text-slate-300">{displayOrders.reduce((sum, o) => sum + o.containers, 0)}</td>
+                <td className="hidden xl:table-cell bg-slate-100 dark:bg-slate-900"></td>
+                <td className="bg-slate-100 dark:bg-slate-900" colSpan={3}></td>
               </tr>
             </tfoot>
           </table>

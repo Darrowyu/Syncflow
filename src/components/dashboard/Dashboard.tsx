@@ -64,7 +64,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, inventory, lines, inciden
   return (
     <div className="space-y-4 md:space-y-6">
       {/* 统计卡片 - 增加外贸产能 */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 md:gap-4">
         <StatCard icon={<Package size={20} />} iconBgClass="bg-blue-50 text-blue-600" label={t('stats_active_orders')} value={pendingOrders.length} />
         <StatCard icon={<Truck size={20} />} iconBgClass="bg-blue-50 text-blue-600" label={t('stats_pending_volume')} value={`${totalTonsPending.toFixed(1)}t`} />
         <StatCard icon={<CheckCircle size={20} />} iconBgClass="bg-green-50 text-green-600" label={t('stats_active_lines')} value={activeLines.length} suffix={`/${lines.length}`} />

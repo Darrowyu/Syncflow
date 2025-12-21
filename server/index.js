@@ -5,6 +5,12 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
 import { initDatabase, getDb } from './db/init.js';
+import { rateLimitMiddleware, asyncHandler, errorHandler } from './middleware/index.js';
+import { setupInventoryRoutes } from './routes/inventory.js';
+import { setupOrderRoutes } from './routes/orders.js';
+import { setupLineRoutes } from './routes/lines.js';
+import { setupCustomerRoutes } from './routes/customers.js';
+import { setupMiscRoutes } from './routes/misc.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -21,586 +27,46 @@ if (existsSync(distPath)) {
   app.use(express.static(distPath));
 }
 
-// 简易请求限流：每IP每秒最多20次请求
-const rateLimit = new Map();
-app.use((req, res, next) => {
-  const ip = req.ip || req.connection.remoteAddress;
-  const now = Date.now();
-  const windowMs = 1000;
-  const maxRequests = 20;
-  const requests = rateLimit.get(ip) || [];
-  const recent = requests.filter(t => now - t < windowMs);
-  if (recent.length >= maxRequests) return res.status(429).json({ error: '请求过于频繁，请稍后再试' });
-  recent.push(now);
-  rateLimit.set(ip, recent);
-  next();
-});
+// 请求限流中间件
+app.use(rateLimitMiddleware);
 
+// 初始化数据库
 await initDatabase();
 
-// 参数化查询，防止SQL注入
+// 数据库辅助函数
 const queryWithParams = (sql, params = []) => {
   const db = getDb();
   return db.prepare(sql).all(params);
 };
 const query = (sql) => queryWithParams(sql, []);
 const run = (sql, params = []) => { const db = getDb(); db.prepare(sql).run(params); };
-const runNoSave = (sql, params = []) => { const db = getDb(); db.prepare(sql).run(params); }; // already persistent
+const runNoSave = (sql, params = []) => { const db = getDb(); db.prepare(sql).run(params); };
 
-// 事务处理：确保多表操作的数据一致性
 const withTransaction = (operations) => {
   const db = getDb();
   const tx = db.transaction(operations);
   return tx();
 };
 
-// 全局错误处理中间件
-const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-
-// ========== 库存 API ==========
-app.get('/api/inventory', asyncHandler((req, res) => {
-  const { lineId } = req.query; // 支持按产线筛选
-  let sql = 'SELECT style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, current_stock as currentStock, grade_a as gradeA, grade_b as gradeB, stock_t_minus_1 as stockTMinus1, locked_for_today as lockedForToday, safety_stock as safetyStock, last_updated as lastUpdated, line_id as lineId, line_name as lineName FROM inventory';
-  const params = [];
-  if (lineId) { sql += ' WHERE line_id = ?'; params.push(parseInt(lineId)); }
-  sql += ' ORDER BY style_no, line_id';
-  const rows = params.length > 0 ? queryWithParams(sql, params) : query(sql);
-  res.json(rows.map(r => ({ ...r, warehouseType: r.warehouseType || 'general', packageSpec: r.packageSpec || '820kg', gradeA: r.gradeA || 0, gradeB: r.gradeB || 0, safetyStock: r.safetyStock || 0 })));
-}));
-
-// 库存预警查询
-app.get('/api/inventory/alerts', asyncHandler((req, res) => {
-  const rows = query('SELECT style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, current_stock as currentStock, safety_stock as safetyStock FROM inventory WHERE safety_stock > 0 AND current_stock < safety_stock');
-  res.json(rows.map(r => ({ ...r, shortage: r.safetyStock - r.currentStock })));
-}));
-
-// 设置安全库存
-app.put('/api/inventory/:styleNo/safety-stock', asyncHandler((req, res) => {
-  const { warehouseType, packageSpec, safetyStock } = req.body;
-  const wt = warehouseType || 'general';
-  const ps = packageSpec || '820kg';
-  run('UPDATE inventory SET safety_stock = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [safetyStock || 0, new Date().toISOString(), req.params.styleNo, wt, ps]);
-  res.json({ success: true });
-}));
-
-app.put('/api/inventory/:styleNo', asyncHandler((req, res) => {
-  const { warehouseType, packageSpec, currentStock, gradeA, gradeB, stockTMinus1, lockedForToday, reason, operator } = req.body;
-  const wt = warehouseType || 'general';
-  const ps = packageSpec || '820kg';
-  const total = (gradeA || 0) + (gradeB || 0);
-  const existing = queryWithParams('SELECT grade_a, grade_b FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [req.params.styleNo, wt, ps])[0];
-  withTransaction(() => {
-    runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, stock_t_minus_1 = ?, locked_for_today = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [currentStock || total, gradeA || 0, gradeB || 0, stockTMinus1, lockedForToday, new Date().toISOString(), req.params.styleNo, wt, ps]);
-    if (existing) { // 记录审计日志
-      runNoSave('INSERT INTO inventory_audit_logs (style_no, warehouse_type, package_spec, action, before_grade_a, before_grade_b, after_grade_a, after_grade_b, reason, operator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [req.params.styleNo, wt, ps, 'adjust', existing.grade_a || 0, existing.grade_b || 0, gradeA || 0, gradeB || 0, reason || '手动调整', operator || 'system']);
-    }
-  });
-  res.json({ success: true });
-}));
-
-// 库存锁定/解锁
-app.post('/api/inventory/:styleNo/lock', asyncHandler((req, res) => {
-  const { warehouseType, packageSpec, quantity, reason, operator } = req.body;
-  const wt = warehouseType || 'general';
-  const ps = packageSpec || '820kg';
-  const existing = queryWithParams('SELECT current_stock, locked_for_today, grade_a, grade_b FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [req.params.styleNo, wt, ps])[0];
-  if (!existing) return res.status(404).json({ error: '库存记录不存在' });
-  const available = existing.current_stock - existing.locked_for_today;
-  if (quantity > available) return res.status(400).json({ error: `可用库存不足，当前可用: ${available}t` });
-  const newLocked = (existing.locked_for_today || 0) + quantity;
-  withTransaction(() => {
-    runNoSave('UPDATE inventory SET locked_for_today = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [newLocked, new Date().toISOString(), req.params.styleNo, wt, ps]);
-    runNoSave('INSERT INTO inventory_audit_logs (style_no, warehouse_type, package_spec, action, before_grade_a, before_grade_b, after_grade_a, after_grade_b, reason, operator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [req.params.styleNo, wt, ps, 'lock', existing.grade_a, existing.grade_b, existing.grade_a, existing.grade_b, reason || `锁定 ${quantity}t`, operator || 'system']);
-  });
-  res.json({ success: true, locked: newLocked });
-}));
-
-app.post('/api/inventory/:styleNo/unlock', asyncHandler((req, res) => {
-  const { warehouseType, packageSpec, quantity, reason, operator } = req.body;
-  const wt = warehouseType || 'general';
-  const ps = packageSpec || '820kg';
-  const existing = queryWithParams('SELECT locked_for_today, grade_a, grade_b FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [req.params.styleNo, wt, ps])[0];
-  if (!existing) return res.status(404).json({ error: '库存记录不存在' });
-  const newLocked = Math.max(0, (existing.locked_for_today || 0) - quantity);
-  withTransaction(() => {
-    runNoSave('UPDATE inventory SET locked_for_today = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [newLocked, new Date().toISOString(), req.params.styleNo, wt, ps]);
-    runNoSave('INSERT INTO inventory_audit_logs (style_no, warehouse_type, package_spec, action, before_grade_a, before_grade_b, after_grade_a, after_grade_b, reason, operator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [req.params.styleNo, wt, ps, 'unlock', existing.grade_a, existing.grade_b, existing.grade_a, existing.grade_b, reason || `解锁 ${quantity}t`, operator || 'system']);
-  });
-  res.json({ success: true, locked: newLocked });
-}));
-
-// 入库（事务处理）- 支持产线关联
-app.post('/api/inventory/in', asyncHandler((req, res) => {
-  const { styleNo, warehouseType, packageSpec, quantity, grade, source, note, orderId, lineId, lineName } = req.body;
-  if (!styleNo || !quantity) return res.status(400).json({ error: '款号和数量必填' });
-  const wt = warehouseType || 'general';
-  const ps = packageSpec || '820kg';
-  const g = grade || 'A';
-  const lid = lineId || null;
-  const lname = lineName || null;
-  // 按(款号+仓库类型+包装规格+产线)查询
-  const existing = lid
-    ? queryWithParams('SELECT current_stock as currentStock, grade_a as gradeA, grade_b as gradeB FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [styleNo, wt, ps, lid])[0]
-    : queryWithParams('SELECT current_stock as currentStock, grade_a as gradeA, grade_b as gradeB FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [styleNo, wt, ps])[0];
-  const newGradeA = (existing?.gradeA || 0) + (g === 'A' ? quantity : 0);
-  const newGradeB = (existing?.gradeB || 0) + (g === 'B' ? quantity : 0);
-  const newBalance = newGradeA + newGradeB;
-  withTransaction(() => {
-    if (existing) {
-      if (lid) {
-        runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps, lid]);
-      } else {
-        runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
-      }
-    } else {
-      runNoSave('INSERT INTO inventory (style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, last_updated, line_id, line_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, newBalance, newGradeA, newGradeB, new Date().toISOString(), lid, lname]);
-    }
-    runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'IN', g, quantity, newBalance, source || (lid ? `产线${lid}入库` : null), note || null, orderId || null]);
-  });
-  res.json({ success: true, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB, lineId: lid });
-}));
-
-// 批量入库
-app.post('/api/inventory/batch-in', asyncHandler((req, res) => {
-  const { items } = req.body; // items: Array<{styleNo, warehouseType?, packageSpec?, quantity, grade?, source?, note?}>
-  if (!items || !Array.isArray(items) || items.length === 0) return res.status(400).json({ error: '请提供入库项目列表' });
-  const results = [];
-  withTransaction(() => {
-    for (const item of items) {
-      const { styleNo, warehouseType, packageSpec, quantity, grade, source, note } = item;
-      if (!styleNo || !quantity) continue;
-      const wt = warehouseType || 'general';
-      const ps = packageSpec || '820kg';
-      const g = grade || 'A';
-      const existing = queryWithParams('SELECT current_stock, grade_a, grade_b FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [styleNo, wt, ps])[0];
-      const newGradeA = (existing?.grade_a || 0) + (g === 'A' ? quantity : 0);
-      const newGradeB = (existing?.grade_b || 0) + (g === 'B' ? quantity : 0);
-      const newBalance = newGradeA + newGradeB;
-      if (existing) {
-        runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
-      } else {
-        runNoSave('INSERT INTO inventory (style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, last_updated) VALUES (?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, newBalance, newGradeA, newGradeB, new Date().toISOString()]);
-      }
-      runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'IN', g, quantity, newBalance, source || '批量入库', note || null]);
-      results.push({ styleNo, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB });
-    }
-  });
-  res.json({ success: true, count: results.length, results });
-}));
-
-// 出库（事务处理）
-app.post('/api/inventory/out', asyncHandler((req, res) => {
-  const { styleNo, warehouseType, packageSpec, quantity, grade, source, note, orderId } = req.body;
-  if (!styleNo || !quantity) return res.status(400).json({ error: '款号和数量必填' });
-  const wt = warehouseType || 'general';
-  const ps = packageSpec || '820kg';
-  const g = grade || 'A';
-  const existing = queryWithParams('SELECT current_stock as currentStock, grade_a as gradeA, grade_b as gradeB, locked_for_today as locked FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [styleNo, wt, ps])[0];
-  const gradeStock = g === 'A' ? (existing?.gradeA || 0) : (existing?.gradeB || 0);
-  if (!existing || gradeStock < quantity) return res.status(400).json({ error: `${g === 'A' ? '优等品' : '一等品'}库存不足` });
-  const newGradeA = (existing?.gradeA || 0) - (g === 'A' ? quantity : 0);
-  const newGradeB = (existing?.gradeB || 0) - (g === 'B' ? quantity : 0);
-  const newBalance = newGradeA + newGradeB;
-  const newLocked = Math.max(0, (existing?.locked || 0) - quantity); // 出库时自动释放锁定
-  withTransaction(() => {
-    runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, locked_for_today = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [newBalance, newGradeA, newGradeB, newLocked, new Date().toISOString(), styleNo, wt, ps]);
-    runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'OUT', g, quantity, newBalance, source || null, note || null, orderId || null]);
-  });
-  res.json({ success: true, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB });
-}));
-
-// 批量出库
-app.post('/api/inventory/batch-out', asyncHandler((req, res) => {
-  const { items } = req.body;
-  if (!items || !Array.isArray(items) || items.length === 0) return res.status(400).json({ error: '请提供出库项目列表' });
-  const results = [];
-  const errors = [];
-  withTransaction(() => {
-    for (const item of items) {
-      const { styleNo, warehouseType, packageSpec, quantity, grade, source, note } = item;
-      if (!styleNo || !quantity) continue;
-      const wt = warehouseType || 'general';
-      const ps = packageSpec || '820kg';
-      const g = grade || 'A';
-      const existing = queryWithParams('SELECT current_stock, grade_a, grade_b FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [styleNo, wt, ps])[0];
-      const gradeStock = g === 'A' ? (existing?.grade_a || 0) : (existing?.grade_b || 0);
-      if (!existing || gradeStock < quantity) { errors.push({ styleNo, error: `${g === 'A' ? '优等品' : '一等品'}库存不足` }); continue; }
-      const newGradeA = (existing?.grade_a || 0) - (g === 'A' ? quantity : 0);
-      const newGradeB = (existing?.grade_b || 0) - (g === 'B' ? quantity : 0);
-      const newBalance = newGradeA + newGradeB;
-      runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
-      runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'OUT', g, quantity, newBalance, source || '批量出库', note || null]);
-      results.push({ styleNo, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB });
-    }
-  });
-  res.json({ success: true, count: results.length, results, errors });
-}));
-
-// 单次盘点调整（优化：合并A/B等级调整为单次API调用）
-app.post('/api/inventory/adjust', asyncHandler((req, res) => {
-  const { styleNo, warehouseType, packageSpec, gradeA, gradeB, reason, operator, lineId, lineName } = req.body;
-  if (!styleNo) return res.status(400).json({ error: '款号必填' });
-  const wt = warehouseType || 'general';
-  const ps = packageSpec || '820kg';
-  const lid = lineId || null;
-  const lname = lineName || null;
-  // 按产线查询
-  const existing = lid
-    ? queryWithParams('SELECT grade_a, grade_b, line_id, line_name FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [styleNo, wt, ps, lid])[0]
-    : queryWithParams('SELECT grade_a, grade_b, line_id, line_name FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [styleNo, wt, ps])[0];
-  if (!existing) return res.status(404).json({ error: '库存记录不存在' });
-  const newGradeA = gradeA !== undefined ? gradeA : existing.grade_a;
-  const newGradeB = gradeB !== undefined ? gradeB : existing.grade_b;
-  const newBalance = newGradeA + newGradeB;
-  const recordLineId = existing.line_id || lid;
-  const recordLineName = existing.line_name || lname;
-  withTransaction(() => {
-    if (lid) {
-      runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps, lid]);
-    } else {
-      runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
-    }
-    runNoSave('INSERT INTO inventory_audit_logs (style_no, warehouse_type, package_spec, line_id, line_name, action, before_grade_a, before_grade_b, after_grade_a, after_grade_b, reason, operator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, recordLineId, recordLineName, 'adjust', existing.grade_a, existing.grade_b, newGradeA, newGradeB, reason || '盘点调整', operator || 'system']);
-    // 记录流水（差异部分，使用ADJUST_IN/ADJUST_OUT区分盘点调整）
-    const diffA = newGradeA - existing.grade_a;
-    const diffB = newGradeB - existing.grade_b;
-    if (diffA !== 0) runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, diffA > 0 ? 'ADJUST_IN' : 'ADJUST_OUT', 'A', Math.abs(diffA), newBalance, '盘点调整', reason || null]);
-    if (diffB !== 0) runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, diffB > 0 ? 'ADJUST_IN' : 'ADJUST_OUT', 'B', Math.abs(diffB), newBalance, '盘点调整', reason || null]);
-  });
-  res.json({ success: true, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB });
-}));
-
-// 库存流水（支持分页）
-app.get('/api/inventory/transactions', asyncHandler((req, res) => {
-  const { styleNo, warehouseType, packageSpec, type, startDate, endDate, page = 1, pageSize = 50 } = req.query;
-  const conditions = [];
-  const params = [];
-  if (styleNo) { conditions.push('style_no = ?'); params.push(styleNo); }
-  if (warehouseType) { conditions.push('warehouse_type = ?'); params.push(warehouseType); }
-  if (packageSpec) { conditions.push('package_spec = ?'); params.push(packageSpec); }
-  if (type) { conditions.push('type = ?'); params.push(type); }
-  if (startDate) { conditions.push('created_at >= ?'); params.push(startDate); }
-  if (endDate) { conditions.push('created_at <= ?'); params.push(endDate + 'T23:59:59'); }
-  const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
-  const countSql = `SELECT COUNT(*) as total FROM inventory_transactions${whereClause}`;
-  const total = (params.length > 0 ? queryWithParams(countSql, params) : query(countSql))[0]?.total || 0;
-  const offset = (parseInt(page) - 1) * parseInt(pageSize);
-  const dataSql = `SELECT id, style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, type, grade, quantity, balance, source, note, order_id as orderId, created_at as createdAt FROM inventory_transactions${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-  const dataParams = [...params, parseInt(pageSize), offset];
-  const rows = queryWithParams(dataSql, dataParams);
-  res.json({ data: rows.map(r => ({ ...r, warehouseType: r.warehouseType || 'general', packageSpec: r.packageSpec || '820kg', grade: r.grade || 'A' })), total, page: parseInt(page), pageSize: parseInt(pageSize), totalPages: Math.ceil(total / parseInt(pageSize)) });
-}));
-
-// 审计日志查询
-app.get('/api/inventory/audit-logs', asyncHandler((req, res) => {
-  const { styleNo, warehouseType, packageSpec, action, lineId, page = 1, pageSize = 50 } = req.query;
-  const conditions = [];
-  const params = [];
-  if (styleNo) { conditions.push('style_no = ?'); params.push(styleNo); }
-  if (warehouseType) { conditions.push('warehouse_type = ?'); params.push(warehouseType); }
-  if (packageSpec) { conditions.push('package_spec = ?'); params.push(packageSpec); }
-  if (action) { conditions.push('action = ?'); params.push(action); }
-  if (lineId) { conditions.push('line_id = ?'); params.push(parseInt(lineId)); }
-  const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
-  const countSql = `SELECT COUNT(*) as total FROM inventory_audit_logs${whereClause}`;
-  const total = (params.length > 0 ? queryWithParams(countSql, params) : query(countSql))[0]?.total || 0;
-  const offset = (parseInt(page) - 1) * parseInt(pageSize);
-  const dataSql = `SELECT id, style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, line_id as lineId, line_name as lineName, action, before_grade_a as beforeGradeA, before_grade_b as beforeGradeB, after_grade_a as afterGradeA, after_grade_b as afterGradeB, reason, operator, created_at as createdAt FROM inventory_audit_logs${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-  const rows = queryWithParams(dataSql, [...params, parseInt(pageSize), offset]);
-  res.json({ data: rows, total, page: parseInt(page), pageSize: parseInt(pageSize), totalPages: Math.ceil(total / parseInt(pageSize)) });
-}));
-
-// 库存报表导出
-app.get('/api/inventory/export', asyncHandler((req, res) => {
-  const rows = query('SELECT style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, current_stock as currentStock, grade_a as gradeA, grade_b as gradeB, locked_for_today as lockedForToday, safety_stock as safetyStock, last_updated as lastUpdated FROM inventory ORDER BY style_no');
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Content-Disposition', `attachment; filename=inventory_${new Date().toISOString().split('T')[0]}.json`);
-  res.json({ exportedAt: new Date().toISOString(), count: rows.length, data: rows });
-}));
-
-// ========== 产线 API ==========
-app.get('/api/lines', asyncHandler((req, res) => {
-  const rows = query('SELECT id, name, status, current_style as currentStyle, daily_capacity as dailyCapacity, export_capacity as exportCapacity, note, style_changed_at as styleChangedAt, sub_lines as subLines FROM production_lines ORDER BY id');
-  res.json(rows.map(r => ({ ...r, subLines: r.subLines ? JSON.parse(r.subLines) : [] })));
-}));
-
-app.post('/api/lines', asyncHandler((req, res) => {
-  const { name, status, currentStyle, dailyCapacity, exportCapacity, note, subLines } = req.body;
-  const maxId = query('SELECT MAX(id) as maxId FROM production_lines')[0]?.maxId || 0;
-  const newId = maxId + 1;
-  run('INSERT INTO production_lines (id, name, status, current_style, daily_capacity, export_capacity, note, sub_lines) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [newId, name || `Line ${newId}`, status || 'Stopped', currentStyle || '-', dailyCapacity || 0, exportCapacity || 0, note || null, subLines ? JSON.stringify(subLines) : null]);
-  res.json({ success: true, id: newId });
-}));
-
-app.put('/api/lines/:id', asyncHandler((req, res) => {
-  const { name, status, currentStyle, dailyCapacity, exportCapacity, note, styleChangedAt, previousStyle, subLines, subLineChanges, changeTime } = req.body;
-  const lineId = parseInt(req.params.id, 10);
-  const now = changeTime || new Date().toISOString();
-  if (previousStyle !== undefined && previousStyle !== currentStyle) {
-    run('INSERT INTO style_change_logs (line_id, from_style, to_style, changed_at) VALUES (?, ?, ?, ?)', [lineId, previousStyle, currentStyle, now]);
-  }
-  if (subLineChanges && Array.isArray(subLineChanges)) {
-    subLineChanges.forEach(change => {
-      run('INSERT INTO style_change_logs (line_id, from_style, to_style, changed_at) VALUES (?, ?, ?, ?)',
-        [lineId, `${change.subName}:${change.fromStyle}`, `${change.subName}:${change.toStyle}`, now]);
-    });
-  }
-  run('UPDATE production_lines SET name = ?, status = ?, current_style = ?, daily_capacity = ?, export_capacity = ?, note = ?, style_changed_at = ?, sub_lines = ? WHERE id = ?',
-    [name, status, currentStyle, dailyCapacity, exportCapacity, note || null, styleChangedAt || null, subLines ? JSON.stringify(subLines) : null, lineId]);
-  res.json({ success: true });
-}));
-
-app.delete('/api/lines/:id', asyncHandler((req, res) => {
-  run('DELETE FROM production_lines WHERE id = ?', [parseInt(req.params.id, 10)]);
-  res.json({ success: true });
-}));
-
-// ========== 款号变更历史 API ==========
-app.get('/api/style-logs', asyncHandler((req, res) => {
-  const rows = query('SELECT id, line_id as lineId, from_style as fromStyle, to_style as toStyle, changed_at as changedAt FROM style_change_logs ORDER BY changed_at DESC');
-  res.json(rows);
-}));
-
-app.get('/api/style-logs/:lineId', asyncHandler((req, res) => {
-  const rows = queryWithParams('SELECT id, line_id as lineId, from_style as fromStyle, to_style as toStyle, changed_at as changedAt FROM style_change_logs WHERE line_id = ? ORDER BY changed_at DESC LIMIT 10', [parseInt(req.params.lineId, 10)]);
-  res.json(rows);
-}));
-
-// ========== 订单 API ==========
-app.get('/api/orders', asyncHandler((req, res) => {
-  const rows = query('SELECT id, date, client, style_no as styleNo, package_spec as packageSpec, pi_no as piNo, line_id as lineId, line_ids as lineIds, bl_no as blNo, total_tons as totalTons, containers, packages_per_container as packagesPerContainer, port, contact_person as contactPerson, trade_type as tradeType, requirements, status, is_large_order as isLargeOrder, large_order_ack as largeOrderAck, loading_time_slot as loadingTimeSlot, expected_ship_date as expectedShipDate, workshop_comm_status as workshopCommStatus, workshop_note as workshopNote, prep_days_required as prepDaysRequired, warehouse_allocation as warehouseAllocation FROM orders ORDER BY date DESC');
-  res.json(rows.map(r => ({ ...r, isLargeOrder: !!r.isLargeOrder, largeOrderAck: !!r.largeOrderAck, warehouseAllocation: r.warehouseAllocation ? JSON.parse(r.warehouseAllocation) : null })));
-}));
-
-app.post('/api/orders', asyncHandler((req, res) => {
-  const o = req.body;
-  const id = o.id || Date.now().toString(36);
-  run('INSERT INTO orders (id, date, client, style_no, package_spec, pi_no, line_id, line_ids, bl_no, total_tons, containers, packages_per_container, port, contact_person, trade_type, requirements, status, is_large_order, large_order_ack, loading_time_slot, expected_ship_date, workshop_comm_status, workshop_note, prep_days_required, warehouse_allocation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, o.date, o.client, o.styleNo, o.packageSpec || null, o.piNo, o.lineId || null, o.lineIds || null, o.blNo, o.totalTons, o.containers || 1, o.packagesPerContainer || 30, o.port, o.contactPerson, o.tradeType, o.requirements, o.status || 'Pending', o.isLargeOrder ? 1 : 0, o.largeOrderAck ? 1 : 0, o.loadingTimeSlot || 'Flexible', o.expectedShipDate || null, o.workshopCommStatus || 'NotStarted', o.workshopNote || null, o.prepDaysRequired || 0, o.warehouseAllocation ? JSON.stringify(o.warehouseAllocation) : null]);
-  res.json({ success: true, id });
-}));
-
-app.put('/api/orders/:id', asyncHandler((req, res) => {
-  const o = req.body;
-  run('UPDATE orders SET date=?, client=?, style_no=?, package_spec=?, pi_no=?, line_id=?, line_ids=?, bl_no=?, total_tons=?, containers=?, packages_per_container=?, port=?, contact_person=?, trade_type=?, requirements=?, status=?, is_large_order=?, large_order_ack=?, loading_time_slot=?, expected_ship_date=?, workshop_comm_status=?, workshop_note=?, prep_days_required=?, warehouse_allocation=? WHERE id=?',
-    [o.date, o.client, o.styleNo, o.packageSpec, o.piNo, o.lineId, o.lineIds, o.blNo, o.totalTons, o.containers, o.packagesPerContainer, o.port, o.contactPerson, o.tradeType, o.requirements, o.status, o.isLargeOrder ? 1 : 0, o.largeOrderAck ? 1 : 0, o.loadingTimeSlot, o.expectedShipDate, o.workshopCommStatus, o.workshopNote, o.prepDaysRequired, o.warehouseAllocation ? JSON.stringify(o.warehouseAllocation) : null, req.params.id]);
-  res.json({ success: true });
-}));
-
-app.patch('/api/orders/:id', asyncHandler((req, res) => {
-  const updates = req.body;
-  const fieldMap = { date: 'date', client: 'client', styleNo: 'style_no', packageSpec: 'package_spec', piNo: 'pi_no', lineId: 'line_id', lineIds: 'line_ids', blNo: 'bl_no', totalTons: 'total_tons', containers: 'containers', packagesPerContainer: 'packages_per_container', port: 'port', contactPerson: 'contact_person', tradeType: 'trade_type', requirements: 'requirements', status: 'status', isLargeOrder: 'is_large_order', largeOrderAck: 'large_order_ack', loadingTimeSlot: 'loading_time_slot', expectedShipDate: 'expected_ship_date', workshopCommStatus: 'workshop_comm_status', workshopNote: 'workshop_note', prepDaysRequired: 'prep_days_required', warehouseAllocation: 'warehouse_allocation' };
-  const boolFields = ['isLargeOrder', 'largeOrderAck'];
-  const jsonFields = ['warehouseAllocation']; // JSON字段需要序列化
-  const validUpdates = []; // 收集有效更新
-  for (const [k, v] of Object.entries(updates)) {
-    if (!Object.prototype.hasOwnProperty.call(fieldMap, k)) continue; // 白名单验证+原型污染防护
-    let value = v;
-    if (boolFields.includes(k)) value = v ? 1 : 0;
-    else if (jsonFields.includes(k)) value = v ? JSON.stringify(v) : null;
-    validUpdates.push({ field: fieldMap[k], value });
-  }
-  if (validUpdates.length === 0) return res.json({ success: true }); // 无有效更新直接返回
-  withTransaction(() => { // 事务保护确保原子性
-    for (const { field, value } of validUpdates) {
-      runNoSave(`UPDATE orders SET ${field} = ? WHERE id = ?`, [value, req.params.id]);
-    }
-  });
-  res.json({ success: true });
-}));
-
-app.delete('/api/orders/:id', asyncHandler((req, res) => {
-  run('DELETE FROM orders WHERE id = ?', [req.params.id]);
-  res.json({ success: true });
-}));
-
-// ========== 款号 API ==========
-app.get('/api/styles', asyncHandler((req, res) => {
-  const rows = query('SELECT id, style_no as styleNo, name, category, unit_weight as unitWeight, note FROM styles ORDER BY style_no');
-  res.json(rows);
-}));
-
-app.post('/api/styles', asyncHandler((req, res) => {
-  const { styleNo, name, category, unitWeight, note } = req.body;
-  if (!styleNo) return res.status(400).json({ error: '款号必填' });
-  run('INSERT INTO styles (style_no, name, category, unit_weight, note) VALUES (?, ?, ?, ?, ?)', [styleNo, name, category, unitWeight || 0, note]);
-  res.json({ success: true });
-}));
-
-app.put('/api/styles/:id', asyncHandler((req, res) => {
-  const { styleNo, name, category, unitWeight, note } = req.body;
-  run('UPDATE styles SET style_no = ?, name = ?, category = ?, unit_weight = ?, note = ? WHERE id = ?', [styleNo, name, category, unitWeight, note, parseInt(req.params.id, 10)]);
-  res.json({ success: true });
-}));
-
-app.delete('/api/styles/:id', asyncHandler((req, res) => {
-  run('DELETE FROM styles WHERE id = ?', [parseInt(req.params.id, 10)]);
-  res.json({ success: true });
-}));
-
-// ========== 客户 API ==========
-app.get('/api/customers', asyncHandler((req, res) => {
-  const rows = query('SELECT id, name, contact_person as contactPerson, phone, email, address, note, created_at as createdAt, updated_at as updatedAt FROM customers ORDER BY name');
-  res.json(rows);
-}));
-
-app.get('/api/customers/:id', asyncHandler((req, res) => {
-  const customer = queryWithParams('SELECT id, name, contact_person as contactPerson, phone, email, address, note, created_at as createdAt, updated_at as updatedAt FROM customers WHERE id = ?', [parseInt(req.params.id, 10)])[0];
-  if (!customer) return res.status(404).json({ error: '客户不存在' });
-  res.json(customer);
-}));
-
-app.get('/api/customers/:id/stats', asyncHandler((req, res) => {
-  const customerId = parseInt(req.params.id, 10);
-  const customer = queryWithParams('SELECT name FROM customers WHERE id = ?', [customerId])[0];
-  if (!customer) return res.status(404).json({ error: '客户不存在' });
-  const stats = queryWithParams(`SELECT COUNT(*) as orderCount, COALESCE(SUM(total_tons), 0) as totalTons, COALESCE(SUM(containers), 0) as totalContainers, MIN(date) as firstOrderDate, MAX(date) as lastOrderDate FROM orders WHERE client = ?`, [customer.name])[0];
-  const topStyles = queryWithParams(`SELECT style_no as styleNo, SUM(total_tons) as tons FROM orders WHERE client = ? GROUP BY style_no ORDER BY tons DESC LIMIT 5`, [customer.name]);
-  res.json({ customerId, customerName: customer.name, ...stats, topStyles });
-}));
-
-app.get('/api/customers/:id/orders', asyncHandler((req, res) => {
-  const customerId = parseInt(req.params.id, 10);
-  const customer = queryWithParams('SELECT name FROM customers WHERE id = ?', [customerId])[0];
-  if (!customer) return res.status(404).json({ error: '客户不存在' });
-  const rows = queryWithParams('SELECT id, date, style_no as styleNo, pi_no as piNo, total_tons as totalTons, containers, port, status FROM orders WHERE client = ? ORDER BY date DESC', [customer.name]);
-  res.json(rows);
-}));
-
-app.post('/api/customers', asyncHandler((req, res) => {
-  const { name, contactPerson, phone, email, address, note } = req.body;
-  if (!name) return res.status(400).json({ error: '客户名称必填' });
-  const existing = queryWithParams('SELECT id FROM customers WHERE name = ?', [name])[0];
-  if (existing) return res.status(400).json({ error: '客户已存在' });
-  run('INSERT INTO customers (name, contact_person, phone, email, address, note) VALUES (?, ?, ?, ?, ?, ?)', [name, contactPerson || null, phone || null, email || null, address || null, note || null]);
-  const newCustomer = queryWithParams('SELECT id FROM customers WHERE name = ?', [name])[0];
-  res.json({ success: true, id: newCustomer?.id });
-}));
-
-app.put('/api/customers/:id', asyncHandler((req, res) => {
-  const { name, contactPerson, phone, email, address, note } = req.body;
-  run('UPDATE customers SET name = ?, contact_person = ?, phone = ?, email = ?, address = ?, note = ?, updated_at = ? WHERE id = ?', [name, contactPerson || null, phone || null, email || null, address || null, note || null, new Date().toISOString(), parseInt(req.params.id, 10)]);
-  res.json({ success: true });
-}));
-
-app.delete('/api/customers/:id', asyncHandler((req, res) => {
-  run('DELETE FROM customers WHERE id = ?', [parseInt(req.params.id, 10)]);
-  res.json({ success: true });
-}));
-
-// 从订单同步客户（自动创建新客户）
-app.post('/api/customers/sync', asyncHandler((req, res) => {
-  const clients = query("SELECT DISTINCT client FROM orders WHERE client IS NOT NULL AND client != ''");
-  let created = 0;
-  clients.forEach(({ client }) => {
-    const existing = queryWithParams('SELECT id FROM customers WHERE name = ?', [client])[0];
-    if (!existing) { run('INSERT INTO customers (name) VALUES (?)', [client]); created++; }
-  });
-  res.json({ success: true, synced: clients.length, created });
-}));
-
-// ========== 异常日志 API ==========
-app.get('/api/incidents', asyncHandler((req, res) => {
-  const rows = query('SELECT id, timestamp, style_no as styleNo, order_client as orderClient, reported_by as reportedBy, reason, note, resolved, resolved_at as resolvedAt FROM incidents ORDER BY timestamp DESC');
-  res.json(rows.map(r => ({ ...r, resolved: !!r.resolved })));
-}));
-
-app.post('/api/incidents', asyncHandler((req, res) => {
-  const i = req.body;
-  if (!i.styleNo || !i.reportedBy || !i.reason) return res.status(400).json({ error: '款号、上报人、原因必填' });
-  const id = i.id || Date.now().toString(36);
-  run('INSERT INTO incidents (id, timestamp, style_no, order_client, reported_by, reason, note, resolved) VALUES (?, ?, ?, ?, ?, ?, ?, 0)',
-    [id, i.timestamp || new Date().toISOString(), i.styleNo, i.orderClient, i.reportedBy, i.reason, i.note]);
-  res.json({ success: true, id });
-}));
-
-app.patch('/api/incidents/:id', asyncHandler((req, res) => {
-  const { resolved } = req.body;
-  if (resolved !== undefined) {
-    run('UPDATE incidents SET resolved = ?, resolved_at = ? WHERE id = ?', [resolved ? 1 : 0, resolved ? new Date().toISOString() : null, req.params.id]);
-  }
-  res.json({ success: true });
-}));
-
-app.delete('/api/incidents/:id', asyncHandler((req, res) => {
-  run('DELETE FROM incidents WHERE id = ?', [req.params.id]);
-  res.json({ success: true });
-}));
-
-// ========== 数据备份与恢复 API ==========
-app.get('/api/backup', asyncHandler((req, res) => {
-  const data = {
-    version: '2.0', // 版本升级，包含完整字段
-    exportedAt: new Date().toISOString(),
-    orders: query('SELECT id, date, client, style_no, package_spec, pi_no, line_id, line_ids, bl_no, total_tons, containers, packages_per_container, port, contact_person, trade_type, requirements, status, is_large_order, large_order_ack, loading_time_slot, expected_ship_date, workshop_comm_status, workshop_note, prep_days_required, warehouse_allocation, created_at FROM orders'),
-    inventory: query('SELECT id, style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today, safety_stock, last_updated, line_id, line_name FROM inventory'),
-    production_lines: query('SELECT id, name, status, current_style, daily_capacity, export_capacity, note, style_changed_at, sub_lines FROM production_lines'),
-    styles: query('SELECT id, style_no, name, category, unit_weight, note, created_at FROM styles'),
-    incidents: query('SELECT id, timestamp, style_no, order_client, reported_by, reason, note, resolved, resolved_at FROM incidents'),
-    customers: query('SELECT id, name, contact_person, phone, email, address, note, created_at, updated_at FROM customers'),
-    inventory_transactions: query('SELECT id, style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id, created_at FROM inventory_transactions ORDER BY created_at DESC LIMIT 2000'),
-    inventory_audit_logs: query('SELECT id, style_no, warehouse_type, package_spec, line_id, line_name, action, before_grade_a, before_grade_b, after_grade_a, after_grade_b, reason, operator, created_at FROM inventory_audit_logs ORDER BY created_at DESC LIMIT 1000'),
-    style_change_logs: query('SELECT id, line_id, from_style, to_style, changed_at FROM style_change_logs ORDER BY changed_at DESC LIMIT 500'),
-  };
-  res.setHeader('Content-Disposition', `attachment; filename=syncflow_backup_${new Date().toISOString().split('T')[0]}.json`);
-  res.json(data);
-}));
-
-app.post('/api/restore', asyncHandler((req, res) => {
-  const confirmToken = req.headers['x-confirm-restore'];
-  if (confirmToken !== 'CONFIRM_RESTORE') return res.status(403).json({ error: '危险操作：需要确认令牌', requiredHeader: 'X-Confirm-Restore: CONFIRM_RESTORE' });
-  const data = req.body;
-  if (!data.version || !data.orders) return res.status(400).json({ error: '无效的备份文件格式' });
-  const isV2 = data.version === '2.0'; // 检测版本
-  withTransaction(() => {
-    const db = getDb();
-    db.run('DELETE FROM orders');
-    db.run('DELETE FROM inventory');
-    db.run('DELETE FROM production_lines');
-    db.run('DELETE FROM styles');
-    db.run('DELETE FROM incidents');
-    db.run('DELETE FROM customers');
-    db.run('DELETE FROM inventory_transactions');
-    db.run('DELETE FROM inventory_audit_logs');
-    db.run('DELETE FROM style_change_logs');
-    // 恢复订单（兼容v1和v2）
-    data.orders?.forEach(o => runNoSave('INSERT INTO orders (id, date, client, style_no, package_spec, pi_no, line_id, line_ids, bl_no, total_tons, containers, packages_per_container, port, contact_person, trade_type, requirements, status, is_large_order, large_order_ack, loading_time_slot, expected_ship_date, workshop_comm_status, workshop_note, prep_days_required, warehouse_allocation, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [o.id, o.date, o.client, o.style_no, o.package_spec || null, o.pi_no, o.line_id, o.line_ids || null, o.bl_no, o.total_tons, o.containers, o.packages_per_container, o.port, o.contact_person, o.trade_type, o.requirements, o.status, o.is_large_order, o.large_order_ack, o.loading_time_slot, o.expected_ship_date, o.workshop_comm_status, o.workshop_note, o.prep_days_required, o.warehouse_allocation || null, o.created_at || new Date().toISOString()]));
-    // 恢复库存（兼容v1和v2）
-    data.inventory?.forEach(i => runNoSave('INSERT INTO inventory (id, style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, stock_t_minus_1, locked_for_today, safety_stock, last_updated, line_id, line_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [i.id, i.style_no, i.warehouse_type || 'general', i.package_spec || '820kg', i.current_stock, i.grade_a || 0, i.grade_b || 0, i.stock_t_minus_1 || 0, i.locked_for_today || 0, i.safety_stock || 0, i.last_updated || new Date().toISOString(), i.line_id || null, i.line_name || null]));
-    // 恢复产线
-    data.production_lines?.forEach(l => runNoSave('INSERT INTO production_lines (id, name, status, current_style, daily_capacity, export_capacity, note, style_changed_at, sub_lines) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [l.id, l.name, l.status, l.current_style, l.daily_capacity, l.export_capacity, l.note, l.style_changed_at, l.sub_lines]));
-    // 恢复款号
-    data.styles?.forEach(s => runNoSave('INSERT INTO styles (id, style_no, name, category, unit_weight, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [s.id, s.style_no, s.name, s.category, s.unit_weight, s.note, s.created_at || new Date().toISOString()]));
-    // 恢复异常日志
-    data.incidents?.forEach(i => runNoSave('INSERT INTO incidents (id, timestamp, style_no, order_client, reported_by, reason, note, resolved, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [i.id, i.timestamp, i.style_no, i.order_client, i.reported_by, i.reason, i.note, i.resolved, i.resolved_at]));
-    // 恢复客户（v2新增）
-    data.customers?.forEach(c => runNoSave('INSERT INTO customers (id, name, contact_person, phone, email, address, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [c.id, c.name, c.contact_person, c.phone, c.email, c.address, c.note, c.created_at, c.updated_at]));
-    // 恢复库存流水（v2新增）
-    data.inventory_transactions?.forEach(t => runNoSave('INSERT INTO inventory_transactions (id, style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [t.id, t.style_no, t.warehouse_type, t.package_spec, t.type, t.grade, t.quantity, t.balance, t.source, t.note, t.order_id, t.created_at]));
-    // 恢复审计日志（v2新增）
-    data.inventory_audit_logs?.forEach(a => runNoSave('INSERT INTO inventory_audit_logs (id, style_no, warehouse_type, package_spec, line_id, line_name, action, before_grade_a, before_grade_b, after_grade_a, after_grade_b, reason, operator, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [a.id, a.style_no, a.warehouse_type, a.package_spec, a.line_id, a.line_name, a.action, a.before_grade_a, a.before_grade_b, a.after_grade_a, a.after_grade_b, a.reason, a.operator, a.created_at]));
-    // 恢复款号变更日志
-    data.style_change_logs?.forEach(l => runNoSave('INSERT INTO style_change_logs (id, line_id, from_style, to_style, changed_at) VALUES (?, ?, ?, ?, ?)', [l.id, l.line_id, l.from_style, l.to_style, l.changed_at]));
-  });
-  res.json({ success: true, message: `已恢复: 订单${data.orders?.length || 0}条, 库存${data.inventory?.length || 0}条, 客户${data.customers?.length || 0}条` });
-}));
+// 挂载路由模块
+app.use('/api/inventory', setupInventoryRoutes(queryWithParams, query, run, runNoSave, withTransaction, asyncHandler));
+app.use('/api/orders', setupOrderRoutes(queryWithParams, query, run, runNoSave, withTransaction, asyncHandler));
+app.use('/api/lines', setupLineRoutes(queryWithParams, query, run, asyncHandler));
+app.use('/api/customers', setupCustomerRoutes(queryWithParams, query, run, asyncHandler));
+app.use('/api', setupMiscRoutes(query, run, runNoSave, withTransaction, asyncHandler, getDb, existsSync, mkdirSync, writeFileSync, join, __dirname));
 
 // 全局错误处理
-app.use((err, req, res, next) => {
-  console.error(`[${new Date().toISOString()}] Error:`, err.message);
-  res.status(500).json({ error: '服务器内部错误', message: err.message });
-});
+app.use(errorHandler);
 
 // SPA路由：所有非API请求返回index.html
 if (existsSync(distPath)) {
   app.get('*', (req, res) => res.sendFile(join(distPath, 'index.html')));
 }
 
-// ========== 每日自动备份功能 ==========
+// 每日自动备份功能
 const BACKUP_DIR = join(__dirname, 'backups');
-const BACKUP_HOUR = 3; // 每天凌晨3点备份
-const BACKUP_KEEP_DAYS = 30; // 保留30天的备份
+const BACKUP_HOUR = 3;
+const BACKUP_KEEP_DAYS = 30;
 
 const performBackup = () => {
   try {
@@ -622,7 +88,7 @@ const performBackup = () => {
   } catch (e) { console.error('[Auto Backup] 备份失败:', e.message); }
 };
 
-const cleanOldBackups = () => { // 清理超过30天的备份
+const cleanOldBackups = () => {
   try {
     const { readdirSync, statSync, unlinkSync } = require('fs');
     const files = readdirSync(BACKUP_DIR);
@@ -638,26 +104,23 @@ const cleanOldBackups = () => { // 清理超过30天的备份
   } catch (e) { }
 };
 
-// 计算下次备份时间
 const scheduleNextBackup = () => {
   const now = new Date();
   const next = new Date(now);
   next.setHours(BACKUP_HOUR, 0, 0, 0);
-  if (next <= now) next.setDate(next.getDate() + 1); // 如果今天的备份时间已过，则明天备份
+  if (next <= now) next.setDate(next.getDate() + 1);
   const delay = next.getTime() - now.getTime();
   console.log(`[Auto Backup] 下次备份时间: ${next.toLocaleString()}`);
   setTimeout(() => {
     performBackup();
-    setInterval(performBackup, 24 * 60 * 60 * 1000); // 之后每24小时备份一次
+    setInterval(performBackup, 24 * 60 * 60 * 1000);
   }, delay);
 };
 
 const PORT = process.env.SERVER_PORT || process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  scheduleNextBackup(); // 启动自动备份调度
-  // 启动时执行一次备份（如果今天还没备份）
+  scheduleNextBackup();
   const todayBackup = join(BACKUP_DIR, `backup_${new Date().toISOString().split('T')[0]}.json`);
   if (!existsSync(todayBackup)) performBackup();
 });
-

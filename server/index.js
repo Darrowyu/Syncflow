@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
-import { initDatabase, getDb, saveDatabase } from './db/init.js';
+import { initDatabase, getDb } from './db/init.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -41,30 +41,17 @@ await initDatabase();
 // 参数化查询，防止SQL注入
 const queryWithParams = (sql, params = []) => {
   const db = getDb();
-  const stmt = db.prepare(sql);
-  if (params.length > 0) stmt.bind(params);
-  const rows = [];
-  while (stmt.step()) rows.push(stmt.getAsObject());
-  stmt.free();
-  return rows;
+  return db.prepare(sql).all(params);
 };
 const query = (sql) => queryWithParams(sql, []);
-const run = (sql, params = []) => { const db = getDb(); db.run(sql, params); saveDatabase(); };
-const runNoSave = (sql, params = []) => { const db = getDb(); db.run(sql, params); }; // 事务内部使用，不自动保存
+const run = (sql, params = []) => { const db = getDb(); db.prepare(sql).run(params); };
+const runNoSave = (sql, params = []) => { const db = getDb(); db.prepare(sql).run(params); }; // already persistent
 
 // 事务处理：确保多表操作的数据一致性
 const withTransaction = (operations) => {
   const db = getDb();
-  try {
-    db.run('BEGIN TRANSACTION');
-    const result = operations();
-    db.run('COMMIT');
-    saveDatabase();
-    return result;
-  } catch (e) {
-    db.run('ROLLBACK');
-    throw e;
-  }
+  const tx = db.transaction(operations);
+  return tx();
 };
 
 // 全局错误处理中间件

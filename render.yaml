@@ -7,6 +7,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=400
     disk:
       name: data
       mountPath: /opt/render/project/src/server/db

@@ -12,9 +12,28 @@ let SQL = null;
 // 封装 prepare 方法，兼容 better-sqlite3 的 API
 function createStatement(sql) {
   return {
-    run: (...params) => { db.run(sql, params); saveDatabase(); },
-    get: (...params) => { const stmt = db.prepare(sql); stmt.bind(params); return stmt.step() ? stmt.getAsObject() : undefined; },
-    all: (...params) => { const results = []; const stmt = db.prepare(sql); stmt.bind(params); while (stmt.step()) results.push(stmt.getAsObject()); stmt.free(); return results; }
+    run: (...params) => {
+      const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
+      db.run(sql, flatParams.length > 0 ? flatParams : undefined);
+      saveDatabase();
+    },
+    get: (...params) => {
+      const stmt = db.prepare(sql);
+      const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
+      if (flatParams.length > 0) stmt.bind(flatParams);
+      const result = stmt.step() ? stmt.getAsObject() : undefined;
+      stmt.free();
+      return result;
+    },
+    all: (...params) => {
+      const results = [];
+      const stmt = db.prepare(sql);
+      const flatParams = params.length === 1 && Array.isArray(params[0]) ? params[0] : params;
+      if (flatParams.length > 0) stmt.bind(flatParams);
+      while (stmt.step()) results.push(stmt.getAsObject());
+      stmt.free();
+      return results;
+    }
   };
 }
 

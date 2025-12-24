@@ -2,6 +2,12 @@ import { Router } from 'express';
 
 const router = Router();
 
+// 浮点数精度修正（避免 0.1 + 0.2 = 0.30000000000000004 问题）
+const roundTo = (value, decimals = 2) => {
+    const factor = Math.pow(10, decimals);
+    return Math.round(value * factor) / factor;
+};
+
 export const setupInventoryRoutes = (queryWithParams, query, run, runNoSave, withTransaction, asyncHandler) => {
     // 库存列表
     router.get('/', asyncHandler((req, res) => {
@@ -14,10 +20,13 @@ export const setupInventoryRoutes = (queryWithParams, query, run, runNoSave, wit
         res.json(rows.map(r => ({ ...r, warehouseType: r.warehouseType || 'general', packageSpec: r.packageSpec || '820kg', gradeA: r.gradeA || 0, gradeB: r.gradeB || 0, safetyStock: r.safetyStock || 0 })));
     }));
 
-    // 库存预警查询
+    // 库存预警查询（扣除锁定量计算可用库存）
     router.get('/alerts', asyncHandler((req, res) => {
-        const rows = query('SELECT style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, current_stock as currentStock, safety_stock as safetyStock FROM inventory WHERE safety_stock > 0 AND current_stock < safety_stock');
-        res.json(rows.map(r => ({ ...r, shortage: r.safetyStock - r.currentStock })));
+        const rows = query('SELECT style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, current_stock as currentStock, locked_for_today as lockedForToday, safety_stock as safetyStock FROM inventory WHERE safety_stock > 0 AND (current_stock - COALESCE(locked_for_today, 0)) < safety_stock');
+        res.json(rows.map(r => {
+            const available = r.currentStock - (r.lockedForToday || 0);
+            return { ...r, available, shortage: r.safetyStock - available };
+        }));
     }));
 
     // 设置安全库存
@@ -89,9 +98,9 @@ export const setupInventoryRoutes = (queryWithParams, query, run, runNoSave, wit
         const existing = lid
             ? queryWithParams('SELECT current_stock as currentStock, grade_a as gradeA, grade_b as gradeB FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [styleNo, wt, ps, lid])[0]
             : queryWithParams('SELECT current_stock as currentStock, grade_a as gradeA, grade_b as gradeB FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [styleNo, wt, ps])[0];
-        const newGradeA = (existing?.gradeA || 0) + (g === 'A' ? quantity : 0);
-        const newGradeB = (existing?.gradeB || 0) + (g === 'B' ? quantity : 0);
-        const newBalance = newGradeA + newGradeB;
+        const newGradeA = roundTo((existing?.gradeA || 0) + (g === 'A' ? quantity : 0));
+        const newGradeB = roundTo((existing?.gradeB || 0) + (g === 'B' ? quantity : 0));
+        const newBalance = roundTo(newGradeA + newGradeB);
         withTransaction(() => {
             if (existing) {
                 if (lid) {
@@ -102,34 +111,42 @@ export const setupInventoryRoutes = (queryWithParams, query, run, runNoSave, wit
             } else {
                 runNoSave('INSERT INTO inventory (style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, last_updated, line_id, line_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, newBalance, newGradeA, newGradeB, new Date().toISOString(), lid, lname]);
             }
-            runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'IN', g, quantity, newBalance, source || (lid ? `产线${lid}入库` : null), note || null, orderId || null]);
+            runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'IN', g, roundTo(quantity), newBalance, source || (lid ? `产线${lid}入库` : null), note || null, orderId || null]);
         });
         res.json({ success: true, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB, lineId: lid });
     }));
 
-    // 批量入库
+    // 批量入库（支持产线筛选）
     router.post('/batch-in', asyncHandler((req, res) => {
         const { items } = req.body;
         if (!items || !Array.isArray(items) || items.length === 0) return res.status(400).json({ error: '请提供入库项目列表' });
         const results = [];
         withTransaction(() => {
             for (const item of items) {
-                const { styleNo, warehouseType, packageSpec, quantity, grade, source, note } = item;
+                const { styleNo, warehouseType, packageSpec, quantity, grade, source, note, lineId, lineName } = item;
                 if (!styleNo || !quantity) continue;
                 const wt = warehouseType || 'general';
                 const ps = packageSpec || '820kg';
                 const g = grade || 'A';
-                const existing = queryWithParams('SELECT current_stock, grade_a, grade_b FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [styleNo, wt, ps])[0];
-                const newGradeA = (existing?.grade_a || 0) + (g === 'A' ? quantity : 0);
-                const newGradeB = (existing?.grade_b || 0) + (g === 'B' ? quantity : 0);
-                const newBalance = newGradeA + newGradeB;
+                const lid = lineId || null;
+                const lname = lineName || null;
+                const existing = lid
+                    ? queryWithParams('SELECT current_stock, grade_a, grade_b FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [styleNo, wt, ps, lid])[0]
+                    : queryWithParams('SELECT current_stock, grade_a, grade_b FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [styleNo, wt, ps])[0];
+                const newGradeA = roundTo((existing?.grade_a || 0) + (g === 'A' ? quantity : 0));
+                const newGradeB = roundTo((existing?.grade_b || 0) + (g === 'B' ? quantity : 0));
+                const newBalance = roundTo(newGradeA + newGradeB);
                 if (existing) {
-                    runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
+                    if (lid) {
+                        runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps, lid]);
+                    } else {
+                        runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
+                    }
                 } else {
-                    runNoSave('INSERT INTO inventory (style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, last_updated) VALUES (?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, newBalance, newGradeA, newGradeB, new Date().toISOString()]);
+                    runNoSave('INSERT INTO inventory (style_no, warehouse_type, package_spec, current_stock, grade_a, grade_b, last_updated, line_id, line_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, newBalance, newGradeA, newGradeB, new Date().toISOString(), lid, lname]);
                 }
-                runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'IN', g, quantity, newBalance, source || '批量入库', note || null]);
-                results.push({ styleNo, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB });
+                runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'IN', g, roundTo(quantity), newBalance, source || (lid ? `产线${lid}批量入库` : '批量入库'), note || null]);
+                results.push({ styleNo, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB, lineId: lid });
             }
         });
         res.json({ success: true, count: results.length, results });
@@ -145,13 +162,13 @@ export const setupInventoryRoutes = (queryWithParams, query, run, runNoSave, wit
         const existing = queryWithParams('SELECT current_stock as currentStock, grade_a as gradeA, grade_b as gradeB, locked_for_today as locked FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [styleNo, wt, ps])[0];
         const gradeStock = g === 'A' ? (existing?.gradeA || 0) : (existing?.gradeB || 0);
         if (!existing || gradeStock < quantity) return res.status(400).json({ error: `${g === 'A' ? '优等品' : '一等品'}库存不足` });
-        const newGradeA = (existing?.gradeA || 0) - (g === 'A' ? quantity : 0);
-        const newGradeB = (existing?.gradeB || 0) - (g === 'B' ? quantity : 0);
-        const newBalance = newGradeA + newGradeB;
-        const newLocked = Math.max(0, (existing?.locked || 0) - quantity);
+        const newGradeA = roundTo((existing?.gradeA || 0) - (g === 'A' ? quantity : 0));
+        const newGradeB = roundTo((existing?.gradeB || 0) - (g === 'B' ? quantity : 0));
+        const newBalance = roundTo(newGradeA + newGradeB);
+        const newLocked = roundTo(Math.max(0, (existing?.locked || 0) - quantity));
         withTransaction(() => {
             runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, locked_for_today = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [newBalance, newGradeA, newGradeB, newLocked, new Date().toISOString(), styleNo, wt, ps]);
-            runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'OUT', g, quantity, newBalance, source || null, note || null, orderId || null]);
+            runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note, order_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'OUT', g, roundTo(quantity), newBalance, source || null, note || null, orderId || null]);
         });
         res.json({ success: true, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB });
     }));
@@ -172,11 +189,11 @@ export const setupInventoryRoutes = (queryWithParams, query, run, runNoSave, wit
                 const existing = queryWithParams('SELECT current_stock, grade_a, grade_b FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [styleNo, wt, ps])[0];
                 const gradeStock = g === 'A' ? (existing?.grade_a || 0) : (existing?.grade_b || 0);
                 if (!existing || gradeStock < quantity) { errors.push({ styleNo, error: `${g === 'A' ? '优等品' : '一等品'}库存不足` }); continue; }
-                const newGradeA = (existing?.grade_a || 0) - (g === 'A' ? quantity : 0);
-                const newGradeB = (existing?.grade_b || 0) - (g === 'B' ? quantity : 0);
-                const newBalance = newGradeA + newGradeB;
+                const newGradeA = roundTo((existing?.grade_a || 0) - (g === 'A' ? quantity : 0));
+                const newGradeB = roundTo((existing?.grade_b || 0) - (g === 'B' ? quantity : 0));
+                const newBalance = roundTo(newGradeA + newGradeB);
                 runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ?', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
-                runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'OUT', g, quantity, newBalance, source || '批量出库', note || null]);
+                runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, 'OUT', g, roundTo(quantity), newBalance, source || '批量出库', note || null]);
                 results.push({ styleNo, balance: newBalance, gradeA: newGradeA, gradeB: newGradeB });
             }
         });
@@ -195,9 +212,9 @@ export const setupInventoryRoutes = (queryWithParams, query, run, runNoSave, wit
             ? queryWithParams('SELECT grade_a, grade_b, line_id, line_name FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id = ?', [styleNo, wt, ps, lid])[0]
             : queryWithParams('SELECT grade_a, grade_b, line_id, line_name FROM inventory WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [styleNo, wt, ps])[0];
         if (!existing) return res.status(404).json({ error: '库存记录不存在' });
-        const newGradeA = gradeA !== undefined ? gradeA : existing.grade_a;
-        const newGradeB = gradeB !== undefined ? gradeB : existing.grade_b;
-        const newBalance = newGradeA + newGradeB;
+        const newGradeA = roundTo(gradeA !== undefined ? gradeA : existing.grade_a);
+        const newGradeB = roundTo(gradeB !== undefined ? gradeB : existing.grade_b);
+        const newBalance = roundTo(newGradeA + newGradeB);
         const recordLineId = existing.line_id || lid;
         const recordLineName = existing.line_name || lname;
         withTransaction(() => {
@@ -207,8 +224,8 @@ export const setupInventoryRoutes = (queryWithParams, query, run, runNoSave, wit
                 runNoSave('UPDATE inventory SET current_stock = ?, grade_a = ?, grade_b = ?, last_updated = ? WHERE style_no = ? AND warehouse_type = ? AND package_spec = ? AND line_id IS NULL', [newBalance, newGradeA, newGradeB, new Date().toISOString(), styleNo, wt, ps]);
             }
             runNoSave('INSERT INTO inventory_audit_logs (style_no, warehouse_type, package_spec, line_id, line_name, action, before_grade_a, before_grade_b, after_grade_a, after_grade_b, reason, operator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, recordLineId, recordLineName, 'adjust', existing.grade_a, existing.grade_b, newGradeA, newGradeB, reason || '盘点调整', operator || 'system']);
-            const diffA = newGradeA - existing.grade_a;
-            const diffB = newGradeB - existing.grade_b;
+            const diffA = roundTo(newGradeA - existing.grade_a);
+            const diffB = roundTo(newGradeB - existing.grade_b);
             if (diffA !== 0) runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, diffA > 0 ? 'ADJUST_IN' : 'ADJUST_OUT', 'A', Math.abs(diffA), newBalance, '盘点调整', reason || null]);
             if (diffB !== 0) runNoSave('INSERT INTO inventory_transactions (style_no, warehouse_type, package_spec, type, grade, quantity, balance, source, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [styleNo, wt, ps, diffB > 0 ? 'ADJUST_IN' : 'ADJUST_OUT', 'B', Math.abs(diffB), newBalance, '盘点调整', reason || null]);
         });

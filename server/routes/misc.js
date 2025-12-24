@@ -2,7 +2,7 @@ import { Router } from 'express';
 
 const router = Router();
 
-export const setupMiscRoutes = (query, run, runNoSave, withTransaction, asyncHandler, getDb, existsSync, mkdirSync, writeFileSync, join, __dirname) => {
+export const setupMiscRoutes = (queryWithParams, query, run, runNoSave, withTransaction, asyncHandler, getDb, existsSync, mkdirSync, writeFileSync, join, __dirname) => {
     // 款号API
     router.get('/styles', asyncHandler((req, res) => {
         const rows = query('SELECT id, style_no as styleNo, name, category, unit_weight as unitWeight, note FROM styles ORDER BY style_no');
@@ -62,7 +62,7 @@ export const setupMiscRoutes = (query, run, runNoSave, withTransaction, asyncHan
     }));
 
     router.get('/style-logs/:lineId', asyncHandler((req, res) => {
-        const rows = query(`SELECT id, line_id as lineId, from_style as fromStyle, to_style as toStyle, changed_at as changedAt FROM style_change_logs WHERE line_id = ${parseInt(req.params.lineId, 10)} ORDER BY changed_at DESC LIMIT 10`);
+        const rows = queryWithParams('SELECT id, line_id as lineId, from_style as fromStyle, to_style as toStyle, changed_at as changedAt FROM style_change_logs WHERE line_id = ? ORDER BY changed_at DESC LIMIT 10', [parseInt(req.params.lineId, 10)]);
         res.json(rows);
     }));
 

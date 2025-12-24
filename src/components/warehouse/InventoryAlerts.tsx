@@ -17,8 +17,14 @@ const InventoryAlerts: React.FC<InventoryAlertsProps> = ({ inventory, onSetSafet
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [safetyStock, setSafetyStock] = useState(0);
 
-  useEffect(() => { // 计算本地预警
-    const localAlerts = inventory.filter(i => (i.safetyStock || 0) > 0 && i.currentStock < (i.safetyStock || 0)).map(i => ({ styleNo: i.styleNo, warehouseType: i.warehouseType, packageSpec: i.packageSpec, currentStock: i.currentStock, safetyStock: i.safetyStock || 0, shortage: (i.safetyStock || 0) - i.currentStock }));
+  useEffect(() => { // 计算本地预警（扣除锁定量）
+    const localAlerts = inventory.filter(i => {
+      const available = i.currentStock - (i.lockedForToday || 0);
+      return (i.safetyStock || 0) > 0 && available < (i.safetyStock || 0);
+    }).map(i => {
+      const available = i.currentStock - (i.lockedForToday || 0);
+      return { styleNo: i.styleNo, warehouseType: i.warehouseType, packageSpec: i.packageSpec, currentStock: i.currentStock, lockedForToday: i.lockedForToday, available, safetyStock: i.safetyStock || 0, shortage: (i.safetyStock || 0) - available };
+    });
     setAlerts(localAlerts);
   }, [inventory]);
 

@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readdirSync, statSync, unlinkSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
@@ -53,7 +53,7 @@ app.use('/api/inventory', setupInventoryRoutes(queryWithParams, query, run, runN
 app.use('/api/orders', setupOrderRoutes(queryWithParams, query, run, runNoSave, withTransaction, asyncHandler));
 app.use('/api/lines', setupLineRoutes(queryWithParams, query, run, asyncHandler));
 app.use('/api/customers', setupCustomerRoutes(queryWithParams, query, run, asyncHandler));
-app.use('/api', setupMiscRoutes(query, run, runNoSave, withTransaction, asyncHandler, getDb, existsSync, mkdirSync, writeFileSync, join, __dirname));
+app.use('/api', setupMiscRoutes(queryWithParams, query, run, runNoSave, withTransaction, asyncHandler, getDb, existsSync, mkdirSync, writeFileSync, join, __dirname));
 
 // 全局错误处理
 app.use(errorHandler);
@@ -90,7 +90,6 @@ const performBackup = () => {
 
 const cleanOldBackups = () => {
   try {
-    const { readdirSync, statSync, unlinkSync } = require('fs');
     const files = readdirSync(BACKUP_DIR);
     const now = Date.now();
     files.forEach(file => {

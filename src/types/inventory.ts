@@ -31,8 +31,10 @@ export interface InventoryAlert {
   warehouseType: WarehouseType;
   packageSpec: PackageSpec;
   currentStock: number;
+  lockedForToday?: number; // 锁定量
+  available: number; // 可用库存（currentStock - lockedForToday）
   safetyStock: number;
-  shortage: number; // 缺口数量
+  shortage: number; // 缺口数量（safetyStock - available）
 }
 
 export interface BatchInventoryItem {

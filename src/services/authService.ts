@@ -1,0 +1,189 @@
+// 认证服务 - 处理登录、注册、Token管理
+const API_BASE = import.meta.env.VITE_API_URL || '';
+const TOKEN_KEY = 'syncflow_auth_token';
+const USER_KEY = 'syncflow_user';
+const REMEMBER_KEY = 'syncflow_remember_credentials';
+
+export interface User {
+    id: number;
+    username: string;
+    displayName: string;
+    avatar: string | null;
+    role: string;
+}
+
+export interface AuthResponse {
+    token: string;
+    user: User;
+}
+
+// 获取存储的Token (使用sessionStorage，关闭浏览器自动登出)
+export const getToken = (): string | null => sessionStorage.getItem(TOKEN_KEY);
+
+// 设置Token
+export const setToken = (token: string): void => sessionStorage.setItem(TOKEN_KEY, token);
+
+// 清除Token
+export const clearToken = (): void => {
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
+};
+
+// 获取存储的用户信息
+export const getStoredUser = (): User | null => {
+    try {
+        const stored = sessionStorage.getItem(USER_KEY);
+        return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+};
+
+// 存储用户信息
+export const setStoredUser = (user: User): void => {
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+};
+
+// 记住密码相关
+export const saveCredentials = (username: string, password: string): void => {
+    localStorage.setItem(REMEMBER_KEY, JSON.stringify({ username, password: btoa(password) }));
+};
+
+export const getCredentials = (): { username: string; password: string } | null => {
+    try {
+        const stored = localStorage.getItem(REMEMBER_KEY);
+        if (!stored) return null;
+        const { username, password } = JSON.parse(stored);
+        return { username, password: atob(password) };
+    } catch { return null; }
+};
+
+export const clearCredentials = (): void => {
+    localStorage.removeItem(REMEMBER_KEY);
+};
+
+// 带认证的请求头
+export const getAuthHeaders = (): HeadersInit => {
+    const token = getToken();
+    return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+};
+
+// 登录
+export const login = async (username: string, password: string): Promise<AuthResponse> => {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '登录失败');
+    setToken(data.token);
+    setStoredUser(data.user);
+    return data;
+};
+
+// 注册
+export const register = async (username: string, password: string, displayName?: string): Promise<AuthResponse> => {
+    const res = await fetch(`${API_BASE}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, displayName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '注册失败');
+    setToken(data.token);
+    setStoredUser(data.user);
+    return data;
+};
+
+// 验证Token
+export const verifyToken = async (): Promise<User | null> => {
+    const token = getToken();
+    if (!token) return null;
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/verify`, { headers: getAuthHeaders() });
+        if (!res.ok) { clearToken(); return null; }
+        const data = await res.json();
+        setStoredUser(data.user);
+        return data.user;
+    } catch { clearToken(); return null; }
+};
+
+// 登出
+export const logout = (): void => clearToken();
+
+// 修改密码
+export const changePassword = async (oldPassword: string, newPassword: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/api/auth/change-password`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ oldPassword, newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '修改密码失败');
+};
+
+// 修改显示名称
+export const updateDisplayName = async (displayName: string): Promise<User> => {
+    const res = await fetch(`${API_BASE}/api/auth/update-display-name`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ displayName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '修改名称失败');
+    setStoredUser(data.user);
+    return data.user;
+};
+
+// 上传头像
+export const uploadAvatar = async (file: File): Promise<User> => {
+    const token = getToken();
+    if (!token) throw new Error('未登录');
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const res = await fetch(`${API_BASE}/api/auth/upload-avatar`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '上传头像失败');
+    setStoredUser(data.user);
+    return data.user;
+};
+
+// 删除头像
+export const deleteAvatar = async (): Promise<User> => {
+    const res = await fetch(`${API_BASE}/api/auth/avatar`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '删除头像失败');
+    setStoredUser(data.user);
+    return data.user;
+};
+
+// 获取AI配置（从服务端）
+export const getServerAIConfig = async (): Promise<{ provider: string; keys: Record<string, string> } | null> => {
+    const token = getToken();
+    if (!token) return null;
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/ai-config`, { headers: getAuthHeaders() });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.aiConfig;
+    } catch { return null; }
+};
+
+// 保存AI配置（到服务端）
+export const saveServerAIConfig = async (aiConfig: { provider: string; keys: Record<string, string> }): Promise<void> => {
+    const res = await fetch(`${API_BASE}/api/auth/ai-config`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ aiConfig }),
+    });
+    if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '保存配置失败');
+    }
+};

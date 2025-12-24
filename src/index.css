@@ -79,3 +79,15 @@
 .print-only {
   display: none;
 }
+
+/* 隐藏浏览器默认的密码显示图标 */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+input::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  position: absolute;
+  right: 0;
+}

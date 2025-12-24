@@ -1,10 +1,12 @@
 import React, { useState, useEffect, lazy, Suspense, useMemo } from 'react';
-import { LayoutDashboard, ShoppingCart, Factory, Menu, X, Globe, Container, Loader2, Maximize, Minimize, HelpCircle, Sparkles, ArrowRight, Bot, Moon, Sun, Settings } from 'lucide-react';
-import { Logo, ErrorBoundary, ToastContainer, SettingsPanel } from './components/common';
+import { LayoutDashboard, ShoppingCart, Factory, Menu, X, Globe, Container, Loader2, Maximize, Minimize, HelpCircle, Sparkles, ArrowRight, Bot, Moon, Sun, Settings, LogOut } from 'lucide-react';
+import { Logo, ErrorBoundary, ToastContainer } from './components/common';
 import { useData, useFullscreen, useIsMobile, useHotkeys, HotkeyAction } from './hooks';
 import { useLanguage } from './i18n';
 import { useTheme } from './context/ThemeContext';
+import { useAuth } from './context/AuthContext';
 import { IncidentLog } from './types';
+import { LoginPage, WelcomePage } from './components/auth';
 
 const Dashboard = lazy(() => import('./components/dashboard/Dashboard'));
 const OrderManagement = lazy(() => import('./components/orders/OrderManagement'));
@@ -12,37 +14,34 @@ const ProductionControl = lazy(() => import('./components/production/ProductionC
 const WarehouseView = lazy(() => import('./components/warehouse/WarehouseView'));
 const HelpCenter = lazy(() => import('./components/help/HelpCenter'));
 const AIAssistant = lazy(() => import('./components/common/AIAssistant'));
+const SettingsPage = lazy(() => import('./components/settings/SettingsPage'));
 
-enum Tab { DASHBOARD = 'Dashboard', ORDERS = 'Orders', PRODUCTION = 'Production', WAREHOUSE = 'Warehouse', HELP = 'Help' }
+enum Tab { DASHBOARD = 'Dashboard', ORDERS = 'Orders', PRODUCTION = 'Production', WAREHOUSE = 'Warehouse', HELP = 'Help', SETTINGS = 'Settings' }
 
 const PageLoader: React.FC = () => <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-blue-600" size={48} /></div>;
 
 function App(): React.ReactElement {
+  const { user, loading: authLoading, isAuthenticated, login, register, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const saved = localStorage.getItem('syncflow_active_tab');
     return saved && Object.values(Tab).includes(saved as Tab) ? saved as Tab : Tab.DASHBOARD;
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showWelcomeUser, setShowWelcomeUser] = useState(false);
   const [showAI, setShowAI] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const { t, language, setLanguage } = useLanguage();
   const isMobile = useIsMobile();
-
-  useEffect(() => { localStorage.setItem('syncflow_active_tab', activeTab); }, [activeTab]);
-  useEffect(() => { if (!localStorage.getItem('syncflow_visited')) setShowWelcome(true); }, []);
-
-  const dismissWelcome = (goToHelp?: boolean): void => {
-    localStorage.setItem('syncflow_visited', 'true');
-    setShowWelcome(false);
-    if (goToHelp) setActiveTab(Tab.HELP);
-  };
+  const { isDark, toggleTheme } = useTheme();
 
   const { orders, setOrders, lines, inventory, incidents, styles, loading, error, lastSyncTime, acknowledgeOrder, confirmLoad, updateLine, addLine, removeLine, logIncident, resolveIncident, removeIncident, addStyle, updateStyle, removeStyle, stockIn, stockOut, updateStock, getTransactions, productionIn, completeProduction, getAlerts, setSafetyStock, lockStock, unlockStock, batchStockIn, batchStockOut, getAuditLogs } = useData();
   const { isFullscreen, toggleFullscreen } = useFullscreen();
-  const { isDark, toggleTheme } = useTheme();
 
-  const hotkeyHandlers = useMemo<Partial<Record<HotkeyAction, () => void>>>(() => ({ // 快捷键处理器
+  // 所有Hooks必须在条件返回之前
+  useEffect(() => { localStorage.setItem('syncflow_active_tab', activeTab); }, [activeTab]);
+  useEffect(() => { if (!localStorage.getItem('syncflow_visited')) setShowWelcome(true); }, []);
+
+  const hotkeyHandlers = useMemo<Partial<Record<HotkeyAction, () => void>>>(() => ({
     dashboard: () => setActiveTab(Tab.DASHBOARD),
     orders: () => setActiveTab(Tab.ORDERS),
     production: () => setActiveTab(Tab.PRODUCTION),
@@ -50,10 +49,71 @@ function App(): React.ReactElement {
     help: () => setActiveTab(Tab.HELP),
     toggleTheme,
     toggleAI: () => setShowAI(prev => !prev),
-    toggleSettings: () => setShowSettings(prev => !prev),
+    toggleSettings: () => setActiveTab(Tab.SETTINGS),
   }), [toggleTheme]);
 
   const { hotkeys, updateHotkey, resetHotkeys, formatHotkey } = useHotkeys(hotkeyHandlers);
+
+  const dismissWelcome = (goToHelp?: boolean): void => {
+    localStorage.setItem('syncflow_visited', 'true');
+    setShowWelcome(false);
+    if (goToHelp) setActiveTab(Tab.HELP);
+  };
+
+  // 认证加载中显示loading
+  if (authLoading) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
+        <div className="text-center">
+          <Loader2 className="animate-spin text-blue-600 mx-auto mb-4" size={48} />
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>正在验证身份...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 未登录显示登录页
+  if (!isAuthenticated) {
+    const handleLogin = async (username: string, password: string) => {
+      setShowWelcomeUser(true);
+      setActiveTab(Tab.DASHBOARD);
+      try {
+        await login(username, password);
+      } catch (e) {
+        setShowWelcomeUser(false);
+        throw e;
+      }
+    };
+    const handleRegister = async (username: string, password: string, displayName?: string) => {
+      setShowWelcomeUser(true);
+      setActiveTab(Tab.DASHBOARD);
+      try {
+        await register(username, password, displayName);
+      } catch (e) {
+        setShowWelcomeUser(false);
+        throw e;
+      }
+    };
+    if (showWelcomeUser) {
+      return (
+        <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #f5f7fa 0%, #e4ecf7 100%)' }}>
+          <Loader2 className="animate-spin text-blue-600" size={48} />
+        </div>
+      );
+    }
+    return <LoginPage onLogin={handleLogin} onRegister={handleRegister} />;
+  }
+
+  // 欢迎页 - 登录成功后展示
+  if (showWelcomeUser && user) {
+    return (
+      <WelcomePage
+        userName={user.displayName || user.username || '用户'}
+        onComplete={() => setShowWelcomeUser(false)}
+        duration={3000}
+      />
+    );
+  }
 
   const renderContent = (): React.ReactElement => {
     if (loading) return <PageLoader />;
@@ -65,6 +125,7 @@ function App(): React.ReactElement {
         {activeTab === Tab.PRODUCTION && <ProductionControl lines={lines} styles={styles} onUpdateLine={updateLine} onAddLine={addLine} onRemoveLine={removeLine} onAddStyle={addStyle} onUpdateStyle={updateStyle} onRemoveStyle={removeStyle} />}
         {activeTab === Tab.WAREHOUSE && <WarehouseView orders={orders} inventory={inventory} lines={lines} incidents={incidents} onConfirmLoad={confirmLoad} onLogIncident={(inc: IncidentLog) => logIncident(inc)} onResolveIncident={resolveIncident} onDeleteIncident={removeIncident} onStockIn={stockIn} onStockOut={stockOut} onUpdateStock={updateStock} onGetTransactions={getTransactions} onProductionIn={productionIn} onSetSafetyStock={setSafetyStock} onLockStock={lockStock} onUnlockStock={unlockStock} />}
         {activeTab === Tab.HELP && <HelpCenter />}
+        {activeTab === Tab.SETTINGS && <SettingsPage hotkeys={hotkeys} updateHotkey={updateHotkey} resetHotkeys={resetHotkeys} formatHotkey={formatHotkey} />}
       </Suspense>
     );
   };
@@ -75,6 +136,7 @@ function App(): React.ReactElement {
     { tab: Tab.PRODUCTION, icon: <Factory size={20} />, label: t('nav_production') },
     { tab: Tab.WAREHOUSE, icon: <Container size={20} />, label: t('nav_warehouse') },
     { tab: Tab.HELP, icon: <HelpCircle size={20} />, label: t('nav_help') },
+    { tab: Tab.SETTINGS, icon: <Settings size={20} />, label: t('nav_settings') },
   ];
 
   return (
@@ -122,7 +184,6 @@ function App(): React.ReactElement {
             </div>
             <div className="flex items-center space-x-1">
               <button onClick={toggleTheme} className={`p-2 rounded-lg ${isDark ? 'text-yellow-400' : 'text-slate-600'}`}>{isDark ? <Sun size={18} /> : <Moon size={18} />}</button>
-              <button onClick={() => setShowSettings(true)} className={`p-2 rounded-lg ${isDark ? 'text-slate-300' : 'text-slate-600'}`}><Settings size={18} /></button>
             </div>
           </header>
         )}
@@ -146,6 +207,25 @@ function App(): React.ReactElement {
               ))}
             </nav>
             <div className={`absolute bottom-0 left-0 right-0 p-4 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+              {/* 用户信息 */}
+              <div className={`flex items-center justify-between mb-3 p-3 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                <div className="flex items-center">
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
+                      {user?.displayName?.charAt(0) || user?.username?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                  <div className="ml-3">
+                    <p className={`font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>{user?.displayName || user?.username}</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{user?.role === 'admin' ? '管理员' : '用户'}</p>
+                  </div>
+                </div>
+                <button onClick={logout} className={`p-2 rounded-lg ${isDark ? 'hover:bg-slate-700 text-slate-400 hover:text-red-400' : 'hover:bg-slate-200 text-slate-500 hover:text-red-500'}`}>
+                  <LogOut size={18} />
+                </button>
+              </div>
               <button onClick={() => { setLanguage(language === 'en' ? 'zh' : 'en'); }} className={`w-full flex items-center justify-center py-2.5 rounded-lg text-sm ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
                 <Globe size={16} className="mr-2" />{language === 'en' ? 'English' : '中文'}
               </button>
@@ -184,6 +264,25 @@ function App(): React.ReactElement {
                   </span>
                 </div>
               </div>
+              {/* 用户信息和登出 */}
+              <div className={`mt-3 flex items-center justify-between rounded-xl transition-[padding] duration-300 ${isFullscreen ? 'p-2 justify-center' : 'p-3'} ${isDark ? 'bg-slate-800/50' : 'bg-slate-50 border border-slate-200'}`}>
+                <div className={`flex items-center overflow-hidden ${isFullscreen ? 'hidden' : ''}`}>
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                      {user?.displayName?.charAt(0) || user?.username?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                  <div className="ml-2 overflow-hidden">
+                    <p className={`text-sm font-medium truncate ${isDark ? 'text-white' : 'text-slate-700'}`}>{user?.displayName || user?.username}</p>
+                    <p className={`text-xs truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{user?.role === 'admin' ? '管理员' : '用户'}</p>
+                  </div>
+                </div>
+                <button onClick={logout} title="退出登录" className={`p-2 rounded-lg transition ${isDark ? 'hover:bg-slate-700 text-slate-400 hover:text-red-400' : 'hover:bg-slate-200 text-slate-500 hover:text-red-500'}`}>
+                  <LogOut size={16} />
+                </button>
+              </div>
             </div>
           </aside>
         )}
@@ -198,7 +297,6 @@ function App(): React.ReactElement {
                 <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{t(`desc_${activeTab.toLowerCase()}` as keyof typeof t)}</p>
               </div>
               <div className="flex items-center space-x-2">
-                <button onClick={() => setShowSettings(true)} className={`p-2 rounded-lg border transition shadow-sm ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`} title="设置"><Settings size={16} /></button>
                 <button onClick={toggleTheme} className={`p-2 rounded-lg border transition shadow-sm ${isDark ? 'bg-slate-800 border-slate-700 text-yellow-400 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{isDark ? <Sun size={16} /> : <Moon size={16} />}</button>
                 <button onClick={toggleFullscreen} className={`p-2 rounded-lg border transition shadow-sm ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}</button>
                 <button onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')} className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border transition shadow-sm text-sm font-medium ${isDark ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Globe size={16} /><span>{language === 'en' ? 'EN' : '中文'}</span></button>
@@ -228,7 +326,6 @@ function App(): React.ReactElement {
           </button>
         )}
         {showAI && <Suspense fallback={null}><AIAssistant orders={orders} lines={lines} inventory={inventory} incidents={incidents} onClose={() => setShowAI(false)} /></Suspense>}
-        {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} hotkeys={hotkeys} updateHotkey={updateHotkey} resetHotkeys={resetHotkeys} formatHotkey={formatHotkey} />}
       </div>
     </ErrorBoundary>
   );

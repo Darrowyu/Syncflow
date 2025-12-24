@@ -25,9 +25,25 @@ export const getAIConfig = (): AIConfig | null => {
   } catch { return null; }
 };
 
-// 保存AI配置
+// 保存AI配置（本地 + 服务端同步）
 export const saveAIConfig = (config: AIConfig): void => {
   localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
+  // 异步同步到服务端（不阻塞）
+  syncConfigToServer(config);
+};
+
+// 同步配置到服务端
+const syncConfigToServer = async (config: AIConfig): Promise<void> => {
+  const token = localStorage.getItem('syncflow_auth_token');
+  if (!token) return; // 未登录则不同步
+  try {
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    await fetch(`${apiBase}/api/auth/ai-config`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ aiConfig: config }),
+    });
+  } catch { } // 静默失败
 };
 
 // 清除AI配置

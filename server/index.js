@@ -11,6 +11,7 @@ import { setupOrderRoutes } from './routes/orders.js';
 import { setupLineRoutes } from './routes/lines.js';
 import { setupCustomerRoutes } from './routes/customers.js';
 import { setupMiscRoutes } from './routes/misc.js';
+import { setupAuthRoutes } from './routes/auth.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -26,6 +27,11 @@ const distPath = join(__dirname, '..', 'dist');
 if (existsSync(distPath)) {
   app.use(express.static(distPath));
 }
+
+// 头像上传文件静态服务
+const uploadsPath = join(__dirname, 'uploads');
+if (!existsSync(uploadsPath)) mkdirSync(uploadsPath, { recursive: true });
+app.use('/uploads', express.static(uploadsPath));
 
 // 请求限流中间件
 app.use(rateLimitMiddleware);
@@ -49,6 +55,7 @@ const withTransaction = (operations) => {
 };
 
 // 挂载路由模块
+app.use('/api/auth', setupAuthRoutes(queryWithParams, query, run, asyncHandler, getDb));
 app.use('/api/inventory', setupInventoryRoutes(queryWithParams, query, run, runNoSave, withTransaction, asyncHandler));
 app.use('/api/orders', setupOrderRoutes(queryWithParams, query, run, runNoSave, withTransaction, asyncHandler));
 app.use('/api/lines', setupLineRoutes(queryWithParams, query, run, asyncHandler));

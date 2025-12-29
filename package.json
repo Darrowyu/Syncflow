@@ -8,6 +8,7 @@
     "server": "node server/index.js",
     "start": "concurrently \"npm run server\" \"npm run dev\"",
     "build": "npm install --prefix server && vite build",
+    "build:frontend": "vite build",
     "preview": "vite preview",
     "prod": "node server/index.js"
   },

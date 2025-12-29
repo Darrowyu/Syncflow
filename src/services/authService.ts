@@ -4,6 +4,13 @@ const TOKEN_KEY = 'syncflow_auth_token';
 const USER_KEY = 'syncflow_user';
 const REMEMBER_KEY = 'syncflow_remember_credentials';
 
+// 获取完整的资源URL（处理头像等静态文件）
+export const getAssetUrl = (path: string | null): string | null => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path; // 已是完整URL
+    return `${API_BASE}${path}`; // 添加后端地址前缀
+};
+
 export interface User {
     id: number;
     username: string;

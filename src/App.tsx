@@ -5,6 +5,7 @@ import { useData, useFullscreen, useIsMobile, useHotkeys, HotkeyAction } from '.
 import { useLanguage } from './i18n';
 import { useTheme } from './context/ThemeContext';
 import { useAuth } from './context/AuthContext';
+import { getAssetUrl } from './services/authService';
 import { IncidentLog } from './types';
 import { LoginPage, WelcomePage } from './components/auth';
 
@@ -211,7 +212,7 @@ function App(): React.ReactElement {
               <div className={`flex items-center justify-between mb-3 p-3 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
                 <div className="flex items-center">
                   {user?.avatar ? (
-                    <img src={user.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
+                    <img src={getAssetUrl(user.avatar) || ''} alt="" className="w-10 h-10 rounded-full object-cover" />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
                       {user?.displayName?.charAt(0) || user?.username?.charAt(0) || 'U'}
@@ -268,7 +269,7 @@ function App(): React.ReactElement {
               <div className={`mt-3 flex items-center justify-between rounded-xl transition-[padding] duration-300 ${isFullscreen ? 'p-2 justify-center' : 'p-3'} ${isDark ? 'bg-slate-800/50' : 'bg-slate-50 border border-slate-200'}`}>
                 <div className={`flex items-center overflow-hidden ${isFullscreen ? 'hidden' : ''}`}>
                   {user?.avatar ? (
-                    <img src={user.avatar} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                    <img src={getAssetUrl(user.avatar) || ''} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
                       {user?.displayName?.charAt(0) || user?.username?.charAt(0) || 'U'}

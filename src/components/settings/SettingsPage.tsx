@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Download, Upload, AlertTriangle, Check, Keyboard, Moon, Sun, Monitor, Bot, RotateCcw, Edit3, User, Lock, Loader2, Camera, Trash2, Users, Shield, Key, UserX, Eye, EyeOff } from 'lucide-react';
 import { downloadBackup, restoreBackup } from '../../services/api';
 import { getAIConfig, saveAIConfig, AIProvider } from '../../services';
-import { changePassword, getUsers, updateUserRole, resetUserPassword, deleteUser, UserListItem } from '../../services/authService';
+import { changePassword, getUsers, updateUserRole, resetUserPassword, deleteUser, UserListItem, getAssetUrl } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../i18n';
@@ -331,7 +331,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
                                             {avatarPreview ? (
                                                 <img src={avatarPreview} alt="preview" className="w-24 h-24 rounded-full object-cover ring-4 ring-blue-100 dark:ring-blue-900" />
                                             ) : user?.avatar ? (
-                                                <img src={user.avatar} alt="avatar" className="w-24 h-24 rounded-full object-cover ring-4 ring-slate-100 dark:ring-slate-700" />
+                                                <img src={getAssetUrl(user.avatar) || ''} alt="avatar" className="w-24 h-24 rounded-full object-cover ring-4 ring-slate-100 dark:ring-slate-700" />
                                             ) : (
                                                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold ring-4 ring-blue-100 dark:ring-blue-900">
                                                     {user?.displayName?.charAt(0) || user?.username?.charAt(0) || 'U'}
@@ -563,7 +563,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
                                         <div key={u.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-100 dark:border-slate-600">
                                             <div className="flex items-center">
                                                 {u.avatar ? (
-                                                    <img src={u.avatar} alt={u.displayName} className="w-10 h-10 rounded-full object-cover" />
+                                                    <img src={getAssetUrl(u.avatar) || ''} alt={u.displayName} className="w-10 h-10 rounded-full object-cover" />
                                                 ) : (
                                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold">
                                                         {u.displayName?.charAt(0) || u.username.charAt(0)}

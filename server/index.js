@@ -12,6 +12,7 @@ import { setupLineRoutes } from './routes/lines.js';
 import { setupCustomerRoutes } from './routes/customers.js';
 import { setupMiscRoutes } from './routes/misc.js';
 import { setupAuthRoutes } from './routes/auth.js';
+import { setupAIRoutes } from './routes/ai.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -56,6 +57,7 @@ const withTransaction = (operations) => {
 
 // 挂载路由模块
 app.use('/api/auth', setupAuthRoutes(queryWithParams, query, run, asyncHandler, getDb));
+app.use('/api/ai', setupAIRoutes(queryWithParams, asyncHandler));
 app.use('/api/inventory', setupInventoryRoutes(queryWithParams, query, run, runNoSave, withTransaction, asyncHandler));
 app.use('/api/orders', setupOrderRoutes(queryWithParams, query, run, runNoSave, withTransaction, asyncHandler));
 app.use('/api/lines', setupLineRoutes(queryWithParams, query, run, asyncHandler));

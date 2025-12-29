@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, Upload, AlertTriangle, Check, Keyboard, Moon, Sun, Monitor, Bot, Eye, EyeOff, RotateCcw, Edit3, User, Lock, Loader2, Camera, Trash2, Users, Shield, Key, UserX } from 'lucide-react';
+import { Download, Upload, AlertTriangle, Check, Keyboard, Moon, Sun, Monitor, Bot, RotateCcw, Edit3, User, Lock, Loader2, Camera, Trash2, Users, Shield, Key, UserX, Eye, EyeOff } from 'lucide-react';
 import { downloadBackup, restoreBackup } from '../../services/api';
-import { getAIConfig, saveAIConfig, clearAIConfig, getProviderKey, AIProvider } from '../../services';
+import { getAIConfig, saveAIConfig, AIProvider } from '../../services';
 import { changePassword, getUsers, updateUserRole, resetUserPassword, deleteUser, UserListItem } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -24,8 +24,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
     const [isRestoring, setIsRestoring] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [aiProvider, setAiProvider] = useState<AIProvider>('gemini');
-    const [aiApiKey, setAiApiKey] = useState('');
-    const [showApiKey, setShowApiKey] = useState(false);
     const [editingAction, setEditingAction] = useState<HotkeyAction | null>(null);
     const [recordedKey, setRecordedKey] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,11 +60,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
 
     useEffect(() => { setMessage(null); }, [activeTab]);
 
-    const handleProviderChange = (provider: AIProvider): void => {
-        setAiProvider(provider);
-        setAiApiKey(getProviderKey(provider));
-    };
-
     const handleExport = async () => {
         setIsExporting(true);
         setMessage(null);
@@ -98,21 +91,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
         } finally {
             setIsRestoring(false);
             e.target.value = '';
-        }
-    };
-
-    const handleSaveAI = (): void => {
-        const config = getAIConfig();
-        const keys = config?.keys || {};
-        if (aiApiKey.trim()) {
-            keys[aiProvider] = aiApiKey.trim();
-            saveAIConfig({ provider: aiProvider, keys });
-            setMessage({ type: 'success', text: t('ai_config_saved') });
-        } else {
-            delete keys[aiProvider];
-            if (Object.keys(keys).length === 0) clearAIConfig();
-            else saveAIConfig({ provider: aiProvider, keys });
-            setMessage({ type: 'success', text: t('ai_config_cleared') });
         }
     };
 
@@ -463,27 +441,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
                             <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
                                 <Bot size={18} className="mr-2 text-purple-500" />{t('ai_config_title')}
                             </h3>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">{t('ai_provider')}</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {[{ value: 'gemini' as AIProvider, label: 'Gemini', desc: 'Google AI' }, { value: 'deepseek' as AIProvider, label: 'DeepSeek', desc: '深度求索' }].map(opt => (
-                                            <button key={opt.value} onClick={() => handleProviderChange(opt.value)} className={`p-4 rounded-xl border text-left transition ${aiProvider === opt.value ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700' : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700/50'}`}>
-                                                <p className={`font-semibold ${aiProvider === opt.value ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'}`}>{opt.label}</p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{opt.desc}</p>
-                                            </button>
-                                        ))}
-                                    </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">{t('ai_provider')}</label>
+                                <div className="grid grid-cols-2 gap-4 max-w-md">
+                                    {[{ value: 'gemini' as AIProvider, label: 'Gemini', desc: 'Google AI' }, { value: 'deepseek' as AIProvider, label: 'DeepSeek', desc: '深度求索' }].map(opt => (
+                                        <button key={opt.value} onClick={() => { setAiProvider(opt.value); saveAIConfig({ provider: opt.value }); setMessage({ type: 'success', text: t('ai_config_saved') }); }} className={`p-4 rounded-xl border text-left transition ${aiProvider === opt.value ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700 ring-2 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700/50'}`}>
+                                            <p className={`font-semibold ${aiProvider === opt.value ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'}`}>{opt.label}</p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{opt.desc}</p>
+                                        </button>
+                                    ))}
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">API Key</label>
-                                    <div className="relative">
-                                        <input type={showApiKey ? 'text' : 'password'} value={aiApiKey} onChange={e => setAiApiKey(e.target.value)} placeholder={t('ai_key_placeholder')} className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-3 pr-10 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
-                                        <button onClick={() => setShowApiKey(!showApiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">{showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}</button>
-                                    </div>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{t('ai_config_desc')}</p>
-                                    <button onClick={handleSaveAI} className="mt-4 px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition text-sm">{t('ai_save_config')}</button>
-                                </div>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-4">{t('ai_backend_desc') || 'AI服务由后端提供，API密钥由管理员在服务器配置。'}</p>
                             </div>
                         </div>
                     )}

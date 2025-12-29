@@ -1,49 +1,31 @@
-import { GoogleGenAI, Type, Schema } from '@google/genai';
 import { Order, OrderStatus, TradeType, ProductLine, InventoryItem, IncidentLog } from '../types';
 import { generateId } from '../utils';
+import { getAuthHeaders } from './authService';
 
 // AI服务商类型
 export type AIProvider = 'gemini' | 'deepseek';
 
-// AI配置接口（每个provider独立存储key）
+// AI配置接口
 export interface AIConfig {
   provider: AIProvider;
-  keys: { gemini?: string; deepseek?: string };
+  keys?: { gemini?: string; deepseek?: string }; // 前端不再存储key，仅存储provider选择
 }
 
-// localStorage存储键
+const API_BASE = import.meta.env.VITE_API_URL || '';
 const AI_CONFIG_KEY = 'syncflow_ai_config';
 
-// 获取AI配置
+// 获取AI配置（仅provider选择）
 export const getAIConfig = (): AIConfig | null => {
   try {
     const stored = localStorage.getItem(AI_CONFIG_KEY);
-    if (!stored) return null;
-    const parsed = JSON.parse(stored);
-    if (parsed.apiKey) return { provider: parsed.provider, keys: { [parsed.provider]: parsed.apiKey } }; // 兼容旧格式
-    return parsed;
-  } catch { return null; }
+    if (!stored) return { provider: 'gemini' };
+    return JSON.parse(stored);
+  } catch { return { provider: 'gemini' }; }
 };
 
-// 保存AI配置（本地 + 服务端同步）
+// 保存AI配置（仅provider选择）
 export const saveAIConfig = (config: AIConfig): void => {
-  localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
-  // 异步同步到服务端（不阻塞）
-  syncConfigToServer(config);
-};
-
-// 同步配置到服务端
-const syncConfigToServer = async (config: AIConfig): Promise<void> => {
-  const token = localStorage.getItem('syncflow_auth_token');
-  if (!token) return; // 未登录则不同步
-  try {
-    const apiBase = import.meta.env.VITE_API_URL || '';
-    await fetch(`${apiBase}/api/auth/ai-config`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ aiConfig: config }),
-    });
-  } catch { } // 静默失败
+  localStorage.setItem(AI_CONFIG_KEY, JSON.stringify({ provider: config.provider }));
 };
 
 // 清除AI配置
@@ -51,81 +33,29 @@ export const clearAIConfig = (): void => {
   localStorage.removeItem(AI_CONFIG_KEY);
 };
 
-// 获取指定provider的key
-export const getProviderKey = (provider: AIProvider): string => {
+// 获取指定provider的key（已弃用，返回空字符串）
+export const getProviderKey = (_provider: AIProvider): string => '';
+
+// 通过后端代理调用AI
+const callAI = async (prompt: string, jsonMode = false): Promise<string> => {
   const config = getAIConfig();
-  return config?.keys?.[provider] || '';
-};
-
-// 获取有效的API Key（优先用户配置，其次环境变量）
-const getEffectiveConfig = (): { provider: AIProvider; apiKey: string } => {
-  const userConfig = getAIConfig();
-  const currentKey = userConfig?.keys?.[userConfig.provider];
-  if (userConfig && currentKey) return { provider: userConfig.provider, apiKey: currentKey };
-  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (envKey) return { provider: 'gemini', apiKey: envKey };
-  throw new Error('AI API Key未配置，请在设置中配置API Key');
-};
-
-// DeepSeek API调用
-const callDeepSeek = async (apiKey: string, prompt: string, jsonMode = false): Promise<string> => {
-  const res = await fetch('https://api.deepseek.com/chat/completions', {
+  const res = await fetch(`${API_BASE}/api/ai/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.1,
-      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-    }),
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ prompt, provider: config?.provider || 'gemini', jsonMode }),
   });
-  if (!res.ok) throw new Error(`DeepSeek API错误: ${res.status}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `AI服务错误: ${res.status}`);
+  }
   const data = await res.json();
-  return data.choices?.[0]?.message?.content || '';
-};
-
-// Gemini API调用
-const callGemini = async (apiKey: string, prompt: string, schema?: Schema): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey });
-  const config = schema ? { responseMimeType: 'application/json', responseSchema: schema, temperature: 0.1 } : { temperature: 0.1 };
-  const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config });
-  return response.text || '';
-};
-
-// 统一AI调用接口
-const callAI = async (prompt: string, jsonMode = false, schema?: Schema): Promise<string> => {
-  const config = getEffectiveConfig();
-  if (config.provider === 'deepseek') return callDeepSeek(config.apiKey, prompt, jsonMode);
-  return callGemini(config.apiKey, prompt, schema);
-};
-
-// 订单解析Schema
-const OrderSchema: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    orders: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          client: { type: Type.STRING }, styleNo: { type: Type.STRING }, piNo: { type: Type.STRING },
-          totalTons: { type: Type.NUMBER }, containers: { type: Type.NUMBER }, port: { type: Type.STRING },
-          contactPerson: { type: Type.STRING }, requirements: { type: Type.STRING },
-          date: { type: Type.STRING, description: 'Date in YYYY-MM-DD format' },
-        },
-        required: ['client', 'styleNo', 'totalTons'],
-      },
-    },
-  },
+  return data.result || '';
 };
 
 // 1. 订单文本解析
 export const parseOrderText = async (text: string): Promise<Partial<Order>[]> => {
-  const config = getEffectiveConfig();
   const prompt = `Extract order details from this text. Today is ${new Date().toISOString().split('T')[0]}. If date is missing, assume tomorrow. Return JSON format: {"orders":[{"client":"","styleNo":"","totalTons":0,"piNo":"","containers":0,"port":"","contactPerson":"","requirements":"","date":"YYYY-MM-DD"}]}. Text: "${text}"`;
-  const response = config.provider === 'deepseek'
-    ? await callDeepSeek(config.apiKey, prompt, true)
-    : await callGemini(config.apiKey, prompt, OrderSchema);
+  const response = await callAI(prompt, true);
   const result = JSON.parse(response || '{}');
   return (result.orders || []).map((o: Record<string, unknown>) => ({
     id: generateId(),

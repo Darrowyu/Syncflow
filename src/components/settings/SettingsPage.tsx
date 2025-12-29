@@ -55,7 +55,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
 
     useEffect(() => {
         const config = getAIConfig();
-        if (config) { setAiProvider(config.provider); setAiApiKey(config.keys?.[config.provider] || ''); }
+        if (config) { setAiProvider(config.provider); }
     }, []);
 
     useEffect(() => { setMessage(null); }, [activeTab]);

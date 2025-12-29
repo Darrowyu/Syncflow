@@ -13,7 +13,6 @@
     "prod": "node server/index.js"
   },
   "dependencies": {
-    "@google/genai": "^1.30.0",
     "concurrently": "^9.2.1",
     "exceljs": "^4.4.0",
     "lucide-react": "^0.555.0",

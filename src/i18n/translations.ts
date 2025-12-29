@@ -98,8 +98,9 @@ export const translations = {
     hotkey_dashboard: "Dashboard", hotkey_orders: "Order Mgmt", hotkey_production: "Production", hotkey_warehouse: "Warehouse", hotkey_help: "Help", hotkey_theme: "Toggle Theme", hotkey_ai: "AI Assistant", hotkey_settings: "Settings",
     hotkey_edit: "Edit", hotkey_recording: "Press keys...", hotkey_conflict: "Conflict", hotkey_reset: "Reset All", hotkey_reset_confirm: "Reset all shortcuts to default?", hotkey_saved: "Shortcut saved",
     // Settings tabs & account
-    tab_account: "Account", tab_ai: "AI", tab_appearance: "Appearance", tab_data: "Data", tab_shortcuts: "Shortcuts",
-    account_settings: "Account Settings", role_admin: "Admin", role_user: "User", change_password: "Change Password",
+    tab_account: "Account", tab_ai: "AI", tab_appearance: "Appearance", tab_data: "Data", tab_shortcuts: "Shortcuts", tab_users: "Users",
+    account_settings: "Account Settings", username: "Username", role: "Role", role_admin: "Admin", role_user: "User", 
+    account_status: "Account Status", status_active: "Active", change_password: "Change Password",
     old_password: "Current Password", new_password_hint: "New Password (min 6 characters)", confirm_password: "Confirm New Password",
     change_password_btn: "Change Password", processing: "Processing...", logout_btn: "Log Out", confirm_logout: "Are you sure you want to log out?",
     error_password_required: "Please enter current and new password", error_password_min_length: "New password must be at least 6 characters",
@@ -275,8 +276,9 @@ export const translations = {
     hotkey_dashboard: "仪表盘", hotkey_orders: "订单管理", hotkey_production: "排产控制", hotkey_warehouse: "仓库作业", hotkey_help: "使用指南", hotkey_theme: "切换主题", hotkey_ai: "AI助手", hotkey_settings: "设置",
     hotkey_edit: "编辑", hotkey_recording: "请按键...", hotkey_conflict: "冲突", hotkey_reset: "重置全部", hotkey_reset_confirm: "确定重置所有快捷键为默认值？", hotkey_saved: "快捷键已保存",
     // Settings tabs & account
-    tab_account: "账户", tab_ai: "AI", tab_appearance: "外观", tab_data: "数据", tab_shortcuts: "快捷键",
-    account_settings: "账户设置", role_admin: "管理员", role_user: "用户", change_password: "修改密码",
+    tab_account: "账户", tab_ai: "AI", tab_appearance: "外观", tab_data: "数据", tab_shortcuts: "快捷键", tab_users: "用户管理",
+    account_settings: "账户设置", username: "用户名", role: "角色", role_admin: "管理员", role_user: "用户",
+    account_status: "账户状态", status_active: "正常", change_password: "修改密码",
     old_password: "原密码", new_password_hint: "新密码（至少6个字符）", confirm_password: "确认新密码",
     change_password_btn: "修改密码", processing: "处理中...", logout_btn: "退出登录", confirm_logout: "确定要退出登录吗？",
     error_password_required: "请填写原密码和新密码", error_password_min_length: "新密码至少6个字符",

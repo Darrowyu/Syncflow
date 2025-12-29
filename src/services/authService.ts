@@ -187,3 +187,55 @@ export const saveServerAIConfig = async (aiConfig: { provider: string; keys: Rec
         throw new Error(data.error || '保存配置失败');
     }
 };
+
+// ========== 用户管理API（仅管理员） ==========
+
+export interface UserListItem {
+    id: number;
+    username: string;
+    displayName: string;
+    avatar: string | null;
+    role: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+// 获取用户列表
+export const getUsers = async (): Promise<UserListItem[]> => {
+    const res = await fetch(`${API_BASE}/api/auth/users`, { headers: getAuthHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '获取用户列表失败');
+    return data.users;
+};
+
+// 修改用户角色
+export const updateUserRole = async (userId: number, role: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/api/auth/users/${userId}/role`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ role }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '修改角色失败');
+};
+
+// 重置用户密码
+export const resetUserPassword = async (userId: number, newPassword: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/api/auth/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '重置密码失败');
+};
+
+// 删除用户
+export const deleteUser = async (userId: number): Promise<void> => {
+    const res = await fetch(`${API_BASE}/api/auth/users/${userId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '删除用户失败');
+};

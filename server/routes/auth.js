@@ -63,6 +63,31 @@ export const setupAuthRoutes = (queryWithParams, query, run, asyncHandler, getDb
         // 字段已存在，忽略错误
     }
 
+    // 创建默认管理员账户（如果不存在）
+    const DEFAULT_ADMIN = { username: 'admin', password: 'admin123', displayName: '管理员' };
+    const adminExists = queryWithParams('SELECT id FROM users WHERE username = ?', [DEFAULT_ADMIN.username]);
+    if (adminExists.length === 0) {
+        const hashedPassword = bcrypt.hashSync(DEFAULT_ADMIN.password, 10);
+        run('INSERT INTO users (username, password, display_name, role) VALUES (?, ?, ?, ?)', 
+            [DEFAULT_ADMIN.username, hashedPassword, DEFAULT_ADMIN.displayName, 'admin']);
+        console.log(`[Auth] 已创建默认管理员账户: ${DEFAULT_ADMIN.username} / ${DEFAULT_ADMIN.password}`);
+    }
+
+    // 验证管理员权限的中间件
+    const requireAdmin = (req, res, next) => {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: '未授权' });
+        try {
+            const token = authHeader.split(' ')[1];
+            const decoded = jwt.verify(token, JWT_SECRET);
+            if (decoded.role !== 'admin') return res.status(403).json({ error: '需要管理员权限' });
+            req.user = decoded;
+            next();
+        } catch (e) {
+            return res.status(401).json({ error: 'Token无效或已过期' });
+        }
+    };
+
     // 注册
     router.post('/register', asyncHandler(async (req, res) => {
         const { username, password, displayName } = req.body;
@@ -275,6 +300,66 @@ export const setupAuthRoutes = (queryWithParams, query, run, asyncHandler, getDb
         } catch (e) {
             return res.status(401).json({ error: 'Token无效或已过期' });
         }
+    }));
+
+    // ========== 用户管理API（仅管理员） ==========
+
+    // 获取所有用户列表
+    router.get('/users', requireAdmin, asyncHandler(async (req, res) => {
+        const users = queryWithParams('SELECT id, username, display_name, avatar, role, created_at, updated_at FROM users ORDER BY created_at DESC', []);
+        res.json({ users: users.map(u => ({ id: u.id, username: u.username, displayName: u.display_name, avatar: u.avatar, role: u.role, createdAt: u.created_at, updatedAt: u.updated_at })) });
+    }));
+
+    // 修改用户角色
+    router.put('/users/:id/role', requireAdmin, asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const { role } = req.body;
+        
+        if (!['admin', 'user'].includes(role)) return res.status(400).json({ error: '无效的角色' });
+        
+        // 不能修改自己的角色
+        if (parseInt(id) === req.user.userId) return res.status(400).json({ error: '不能修改自己的角色' });
+        
+        const user = queryWithParams('SELECT id FROM users WHERE id = ?', [id]);
+        if (user.length === 0) return res.status(404).json({ error: '用户不存在' });
+        
+        run('UPDATE users SET role = ?, updated_at = ? WHERE id = ?', [role, new Date().toISOString(), id]);
+        res.json({ success: true });
+    }));
+
+    // 重置用户密码（管理员）
+    router.post('/users/:id/reset-password', requireAdmin, asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const { newPassword } = req.body;
+        
+        if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: '新密码至少6个字符' });
+        
+        const user = queryWithParams('SELECT id FROM users WHERE id = ?', [id]);
+        if (user.length === 0) return res.status(404).json({ error: '用户不存在' });
+        
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        run('UPDATE users SET password = ?, updated_at = ? WHERE id = ?', [hashedPassword, new Date().toISOString(), id]);
+        res.json({ success: true });
+    }));
+
+    // 删除用户
+    router.delete('/users/:id', requireAdmin, asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        
+        // 不能删除自己
+        if (parseInt(id) === req.user.userId) return res.status(400).json({ error: '不能删除自己的账户' });
+        
+        const user = queryWithParams('SELECT id, avatar FROM users WHERE id = ?', [id]);
+        if (user.length === 0) return res.status(404).json({ error: '用户不存在' });
+        
+        // 删除用户头像文件
+        if (user[0].avatar) {
+            const avatarPath = join(UPLOAD_DIR, user[0].avatar.replace('/uploads/avatars/', ''));
+            if (existsSync(avatarPath)) try { unlinkSync(avatarPath); } catch {}
+        }
+        
+        run('DELETE FROM users WHERE id = ?', [id]);
+        res.json({ success: true });
     }));
 
     return router;

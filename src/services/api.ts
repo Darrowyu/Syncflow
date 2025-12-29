@@ -1,8 +1,9 @@
 import { Order, ProductLine, InventoryItem, IncidentLog, Style, InventoryTransaction, InventoryAlert, InventoryAuditLog, BatchInventoryItem, PaginatedTransactions, TransactionQueryParams } from '../types';
 import { cacheGet, cacheSet, cacheClear } from '../utils/cache';
 
+const API_URL = import.meta.env.VITE_API_URL;
 const API_PORT = import.meta.env.VITE_API_PORT;
-const API_BASE = API_PORT ? `${window.location.protocol}//${window.location.hostname}:${API_PORT}/api` : '/api';
+const API_BASE = API_URL ? `${API_URL}/api` : (API_PORT ? `${window.location.protocol}//${window.location.hostname}:${API_PORT}/api` : '/api');
 
 // API响应类型
 interface ApiSuccess { success: true }

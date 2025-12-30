@@ -30,6 +30,7 @@ function App(): React.ReactElement {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showWelcomeUser, setShowWelcomeUser] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
   const [showAI, setShowAI] = useState(false);
   const { t, language, setLanguage } = useLanguage();
   const isMobile = useIsMobile();
@@ -76,6 +77,7 @@ function App(): React.ReactElement {
   // 未登录显示登录页
   if (!isAuthenticated) {
     const handleLogin = async (username: string, password: string) => {
+      setIsNewUser(false);
       setShowWelcomeUser(true);
       setActiveTab(Tab.DASHBOARD);
       try {
@@ -86,6 +88,7 @@ function App(): React.ReactElement {
       }
     };
     const handleRegister = async (username: string, password: string, displayName?: string) => {
+      setIsNewUser(true);
       setShowWelcomeUser(true);
       setActiveTab(Tab.DASHBOARD);
       try {
@@ -105,13 +108,14 @@ function App(): React.ReactElement {
     return <LoginPage onLogin={handleLogin} onRegister={handleRegister} />;
   }
 
-  // 欢迎页 - 登录成功后展示
+  // 欢迎页 - 登录/注册成功后展示
   if (showWelcomeUser && user) {
     return (
       <WelcomePage
         userName={user.displayName || user.username || '用户'}
-        onComplete={() => setShowWelcomeUser(false)}
+        onComplete={() => { setShowWelcomeUser(false); setIsNewUser(false); }}
         duration={3000}
+        isNewUser={isNewUser}
       />
     );
   }

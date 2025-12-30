@@ -451,7 +451,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
                                         </button>
                                     ))}
                                 </div>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-4">{t('ai_backend_desc') || 'AI服务由后端提供，API密钥由管理员在服务器配置。'}</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-4">AI服务由后端提供，API密钥由管理员在服务器配置。</p>
                             </div>
                         </div>
                     )}

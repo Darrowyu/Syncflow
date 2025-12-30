@@ -1,7 +1,7 @@
 import React, { memo, useState, useEffect } from 'react';
 import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, ArrowLeft, CheckCircle, User } from 'lucide-react';
 import { Logo } from '../common';
-import { getCredentials, saveCredentials, clearCredentials } from '../../services/authService';
+import { getCredentials, saveCredentials, clearCredentials, checkUsernameExists } from '../../services/authService';
 
 interface LoginPageProps {
     onLogin: (username: string, password: string) => Promise<void>;
@@ -20,9 +20,31 @@ const LoginPage: React.FC<LoginPageProps> = memo(({ onLogin, onRegister }) => {
     const [rememberMe, setRememberMe] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [usernameError, setUsernameError] = useState(''); // 用户名实时检测错误
+    const [checkingUsername, setCheckingUsername] = useState(false);
     const [forgotEmail, setForgotEmail] = useState('');
     const [forgotSuccess, setForgotSuccess] = useState(false);
     const [fadeOut, setFadeOut] = useState(false);
+
+    // 注册模式下实时检测用户名是否已存在
+    useEffect(() => {
+        if (mode !== 'register' || username.length < 3) {
+            setUsernameError('');
+            return;
+        }
+        const timer = setTimeout(async () => {
+            setCheckingUsername(true);
+            try {
+                const exists = await checkUsernameExists(username);
+                setUsernameError(exists ? '该邮箱已被注册' : '');
+            } catch {
+                setUsernameError('');
+            } finally {
+                setCheckingUsername(false);
+            }
+        }, 500); // 防抖500ms
+        return () => clearTimeout(timer);
+    }, [username, mode]);
 
     // 加载已保存的凭据
     useEffect(() => {
@@ -57,6 +79,10 @@ const LoginPage: React.FC<LoginPageProps> = memo(({ onLogin, onRegister }) => {
             return;
         }
         if (mode === 'register') {
+            if (usernameError) {
+                setError(usernameError);
+                return;
+            }
             if (password !== confirmPassword) {
                 setError('两次输入的密码不一致');
                 return;
@@ -172,8 +198,10 @@ const LoginPage: React.FC<LoginPageProps> = memo(({ onLogin, onRegister }) => {
                                             <label className="block text-sm font-medium text-gray-700 mb-2">{mode === 'login' ? '账号' : '邮箱地址'}</label>
                                             <div className="relative">
                                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">{mode === 'login' ? <User size={18} /> : <Mail size={18} />}</span>
-                                                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder={mode === 'login' ? '请输入邮箱或用户名' : '请输入您的邮箱'} className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" autoComplete="username" />
+                                                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder={mode === 'login' ? '请输入邮箱或用户名' : '请输入您的邮箱'} className={`w-full pl-11 pr-4 py-3 bg-gray-50 border rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition ${usernameError ? 'border-red-300 focus:ring-red-500' : 'border-gray-200 focus:ring-blue-500'}`} autoComplete="username" />
+                                                {checkingUsername && <span className="absolute right-4 top-1/2 -translate-y-1/2"><Loader2 size={16} className="animate-spin text-gray-400" /></span>}
                                             </div>
+                                            {usernameError && <p className="mt-1 text-sm text-red-500">{usernameError}</p>}
                                         </div>
 
                                         <div>

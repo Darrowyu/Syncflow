@@ -6,6 +6,7 @@ logs
 server/backups/
 server/uploads/
 server/install_log.txt
+*.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

@@ -5,9 +5,10 @@ interface WelcomePageProps {
     userName: string;
     onComplete: () => void;
     duration?: number; // 默认3秒
+    isNewUser?: boolean; // 是否是新注册用户
 }
 
-const WelcomePage: React.FC<WelcomePageProps> = memo(({ userName, onComplete, duration = 3000 }) => {
+const WelcomePage: React.FC<WelcomePageProps> = memo(({ userName, onComplete, duration = 3000, isNewUser = false }) => {
     const [progress, setProgress] = useState(0);
     const [fading, setFading] = useState(false);
     const [visible, setVisible] = useState(false);
@@ -65,10 +66,12 @@ const WelcomePage: React.FC<WelcomePageProps> = memo(({ userName, onComplete, du
                 </div>
 
                 {/* 欢迎文案 */}
-                <h1 className="text-3xl font-bold text-gray-800 mb-2 animate-fade-in">欢迎回来</h1>
-                <p className="text-xl text-gray-600 mb-12 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+                <h1 className="text-3xl font-bold text-gray-800 mb-2 animate-fade-in">{isNewUser ? '欢迎加入' : '欢迎回来'}</h1>
+                <p className="text-xl text-gray-600 mb-2 animate-fade-in" style={{ animationDelay: '0.1s' }}>
                     <span className="font-semibold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">{userName}</span>
                 </p>
+                {isNewUser && <p className="text-sm text-gray-500 mb-10 animate-fade-in" style={{ animationDelay: '0.2s' }}>注册成功，即将进入系统...</p>}
+                {!isNewUser && <div className="mb-10" />}
 
                 {/* 圆环进度条 */}
                 <div className="relative w-24 h-24 mb-4">

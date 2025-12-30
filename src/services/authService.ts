@@ -1,5 +1,7 @@
 // 认证服务 - 处理登录、注册、Token管理
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL;
+const API_PORT = import.meta.env.VITE_API_PORT;
+const API_BASE = API_URL || (API_PORT ? `${window.location.protocol}//${window.location.hostname}:${API_PORT}` : '');
 const TOKEN_KEY = 'syncflow_auth_token';
 const USER_KEY = 'syncflow_user';
 const REMEMBER_KEY = 'syncflow_remember_credentials';
@@ -71,6 +73,17 @@ export const clearCredentials = (): void => {
 export const getAuthHeaders = (): HeadersInit => {
     const token = getToken();
     return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+};
+
+// 检测用户名是否已存在
+export const checkUsernameExists = async (username: string): Promise<boolean> => {
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/check-username?username=${encodeURIComponent(username)}`);
+        const data = await res.json();
+        return data.exists;
+    } catch {
+        return false;
+    }
 };
 
 // 登录
@@ -183,7 +196,7 @@ export const getServerAIConfig = async (): Promise<{ provider: string; keys: Rec
 };
 
 // 保存AI配置（到服务端）
-export const saveServerAIConfig = async (aiConfig: { provider: string; keys: Record<string, string> }): Promise<void> => {
+export const saveServerAIConfig = async (aiConfig: { provider: string; keys?: Record<string, string> }): Promise<void> => {
     const res = await fetch(`${API_BASE}/api/auth/ai-config`, {
         method: 'POST',
         headers: getAuthHeaders(),

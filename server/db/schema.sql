@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS orders (
   package_spec TEXT,
   pi_no TEXT,
   line_id INTEGER,
+  line_ids TEXT,
   bl_no TEXT,
   total_tons REAL NOT NULL,
   containers INTEGER DEFAULT 1,

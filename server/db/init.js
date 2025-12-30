@@ -60,7 +60,19 @@ export async function initDatabase() {
 
   const wrappedDb = wrapDb(db);
 
-  // 基础表结构迁移逻辑
+  // 先检查是否是全新数据库，如果是则先创建基础表结构
+  const ordersTableCheck = wrappedDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'").get();
+  if (!ordersTableCheck) {
+    console.log('[DB] 检测到新数据库，正在创建表结构...');
+    const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8');
+    db.exec(schema);
+    seedData(wrappedDb);
+    saveDatabase();
+    console.log('[DB] 数据库初始化完成');
+    return wrappedDb;
+  }
+
+  // 以下是针对已有数据库的迁移逻辑
   db.exec("CREATE TABLE IF NOT EXISTS styles (id INTEGER PRIMARY KEY AUTOINCREMENT, style_no TEXT UNIQUE NOT NULL, name TEXT, category TEXT, unit_weight REAL DEFAULT 0, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 
   // 迁移：添加style_changed_at列
@@ -173,14 +185,6 @@ export async function initDatabase() {
       if (row.client) wrappedDb.prepare("INSERT OR IGNORE INTO customers (name) VALUES (?)").run(row.client);
     });
   } catch (e) { console.error('Customer migration error:', e); }
-
-  // 如果是空数据库，初始化种子数据
-  const tableCheck = wrappedDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'").get();
-  if (!tableCheck) {
-    const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf-8');
-    db.exec(schema);
-    seedData(wrappedDb);
-  }
 
   saveDatabase();
   return wrappedDb;

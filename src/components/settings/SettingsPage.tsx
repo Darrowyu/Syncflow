@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Download, Upload, AlertTriangle, Check, Keyboard, Moon, Sun, Monitor, Bot, RotateCcw, Edit3, User, Lock, Loader2, Camera, Trash2, Users, Shield, Key, UserX, Eye, EyeOff } from 'lucide-react';
 import { downloadBackup, restoreBackup } from '../../services/api';
 import { getAIConfig, saveAIConfig, AIProvider } from '../../services';
-import { changePassword, getUsers, updateUserRole, resetUserPassword, deleteUser, UserListItem, getAssetUrl } from '../../services/authService';
+import { changePassword, getUsers, updateUserRole, resetUserPassword, deleteUser, UserListItem, getAssetUrl, saveServerAIConfig, getServerAIConfig } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../i18n';
@@ -52,6 +52,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
     const [isLoadingUsers, setIsLoadingUsers] = useState(false);
     const [resetPasswordUserId, setResetPasswordUserId] = useState<number | null>(null);
     const [resetPasswordValue, setResetPasswordValue] = useState('');
+
+    // AI API 密钥状态
+    const [geminiKey, setGeminiKey] = useState('');
+    const [deepseekKey, setDeepseekKey] = useState('');
+    const [showGeminiKey, setShowGeminiKey] = useState(false);
+    const [showDeepseekKey, setShowDeepseekKey] = useState(false);
+    const [hasDefaultGemini, setHasDefaultGemini] = useState(false);
+    const [hasDefaultDeepseek, setHasDefaultDeepseek] = useState(false);
+    const [isSavingAiConfig, setIsSavingAiConfig] = useState(false);
 
     useEffect(() => {
         const config = getAIConfig();
@@ -441,17 +450,72 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
                             <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
                                 <Bot size={18} className="mr-2 text-purple-500" />{t('ai_config_title')}
                             </h3>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">{t('ai_provider')}</label>
-                                <div className="grid grid-cols-2 gap-4 max-w-md">
-                                    {[{ value: 'gemini' as AIProvider, label: 'Gemini', desc: 'Google AI' }, { value: 'deepseek' as AIProvider, label: 'DeepSeek', desc: '深度求索' }].map(opt => (
-                                        <button key={opt.value} onClick={() => { setAiProvider(opt.value); saveAIConfig({ provider: opt.value }); setMessage({ type: 'success', text: t('ai_config_saved') }); }} className={`p-4 rounded-xl border text-left transition ${aiProvider === opt.value ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700 ring-2 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700/50'}`}>
-                                            <p className={`font-semibold ${aiProvider === opt.value ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'}`}>{opt.label}</p>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{opt.desc}</p>
-                                        </button>
-                                    ))}
+                            <div className="space-y-6">
+                                {/* AI 服务商选择 */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">{t('ai_provider')}</label>
+                                    <div className="grid grid-cols-2 gap-4 max-w-md">
+                                        {[{ value: 'gemini' as AIProvider, label: 'Gemini', desc: 'Google AI' }, { value: 'deepseek' as AIProvider, label: 'DeepSeek', desc: '深度求索' }].map(opt => (
+                                            <button key={opt.value} onClick={() => { setAiProvider(opt.value); saveAIConfig({ provider: opt.value }); setMessage({ type: 'success', text: t('ai_config_saved') }); }} className={`p-4 rounded-xl border text-left transition ${aiProvider === opt.value ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/30 dark:border-blue-700 ring-2 ring-blue-500/20' : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700/50'}`}>
+                                                <p className={`font-semibold ${aiProvider === opt.value ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'}`}>{opt.label}</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{opt.desc}</p>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-4">AI服务由后端提供，API密钥由管理员在服务器配置。</p>
+
+                                {/* API 密钥配置 */}
+                                <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">API 密钥配置</label>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">设置个人 API 密钥（可选）。如果不填写，将使用管理员配置的默认密钥。</p>
+                                    
+                                    <div className="space-y-4 max-w-lg">
+                                        {/* Gemini Key */}
+                                        <div>
+                                            <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1.5">
+                                                Gemini API Key
+                                                {hasDefaultGemini && <span className="ml-2 text-xs text-green-600 dark:text-green-400">（已有默认配置）</span>}
+                                            </label>
+                                            <div className="relative">
+                                                <input type={showGeminiKey ? 'text' : 'password'} value={geminiKey} onChange={(e) => setGeminiKey(e.target.value)} placeholder="输入您的 Gemini API Key（留空使用默认）" className="w-full px-4 py-2.5 pr-10 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+                                                <button type="button" onClick={() => setShowGeminiKey(!showGeminiKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                                                    {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* DeepSeek Key */}
+                                        <div>
+                                            <label className="block text-sm text-slate-600 dark:text-slate-400 mb-1.5">
+                                                DeepSeek API Key
+                                                {hasDefaultDeepseek && <span className="ml-2 text-xs text-green-600 dark:text-green-400">（已有默认配置）</span>}
+                                            </label>
+                                            <div className="relative">
+                                                <input type={showDeepseekKey ? 'text' : 'password'} value={deepseekKey} onChange={(e) => setDeepseekKey(e.target.value)} placeholder="输入您的 DeepSeek API Key（留空使用默认）" className="w-full px-4 py-2.5 pr-10 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" />
+                                                <button type="button" onClick={() => setShowDeepseekKey(!showDeepseekKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                                                    {showDeepseekKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <button onClick={async () => {
+                                            setIsSavingAiConfig(true);
+                                            try {
+                                                const keys: Record<string, string> = {};
+                                                if (geminiKey) keys.gemini = geminiKey;
+                                                if (deepseekKey) keys.deepseek = deepseekKey;
+                                                await saveServerAIConfig({ provider: aiProvider, keys });
+                                                setMessage({ type: 'success', text: 'API 密钥已保存' });
+                                            } catch (e) {
+                                                setMessage({ type: 'error', text: e instanceof Error ? e.message : '保存失败' });
+                                            } finally {
+                                                setIsSavingAiConfig(false);
+                                            }
+                                        }} disabled={isSavingAiConfig} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition text-sm disabled:opacity-60 flex items-center">
+                                            {isSavingAiConfig ? <><Loader2 size={16} className="animate-spin mr-2" />保存中...</> : <><Key size={16} className="mr-2" />保存 API 密钥</>}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}

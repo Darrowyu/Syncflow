@@ -90,8 +90,12 @@ export const setupAuthRoutes = (queryWithParams, query, run, asyncHandler, getDb
 
     // 注册
     router.post('/register', asyncHandler(async (req, res) => {
+        console.log('[Register] Request body:', JSON.stringify(req.body)); // 调试日志
         const { username, password, displayName } = req.body;
-        if (!username || !password) return res.status(400).json({ error: '用户名和密码不能为空' });
+        if (!username || !password) {
+            console.log('[Register] Empty username or password, body:', req.body);
+            return res.status(400).json({ error: '用户名和密码不能为空' });
+        }
         if (username.length < 3) return res.status(400).json({ error: '用户名至少3个字符' });
         if (password.length < 6) return res.status(400).json({ error: '密码至少6个字符' });
 

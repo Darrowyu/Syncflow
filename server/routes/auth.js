@@ -90,24 +90,49 @@ export const setupAuthRoutes = (queryWithParams, query, run, asyncHandler, getDb
 
     // 注册
     router.post('/register', asyncHandler(async (req, res) => {
-        console.log('[Register] Request body:', JSON.stringify(req.body)); // 调试日志
+        console.log('[Register] Request body:', JSON.stringify(req.body));
         const { username, password, displayName } = req.body;
         if (!username || !password) {
-            console.log('[Register] Empty username or password, body:', req.body);
+            console.log('[Register] Empty username or password');
             return res.status(400).json({ error: '用户名和密码不能为空' });
         }
-        if (username.length < 3) return res.status(400).json({ error: '用户名至少3个字符' });
-        if (password.length < 6) return res.status(400).json({ error: '密码至少6个字符' });
+        if (username.length < 3) {
+            console.log('[Register] Username too short:', username.length);
+            return res.status(400).json({ error: '用户名至少3个字符' });
+        }
+        if (password.length < 6) {
+            console.log('[Register] Password too short:', password.length);
+            return res.status(400).json({ error: '密码至少6个字符' });
+        }
 
         const existing = queryWithParams('SELECT id FROM users WHERE username = ?', [username]);
-        if (existing.length > 0) return res.status(400).json({ error: '用户名已存在' });
+        console.log('[Register] Existing check result:', existing);
+        if (existing.length > 0) {
+            console.log('[Register] Username already exists:', username);
+            return res.status(400).json({ error: '用户名已存在' });
+        }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        run('INSERT INTO users (username, password, display_name) VALUES (?, ?, ?)', [username, hashedPassword, displayName || username]);
+        try {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            console.log('[Register] Password hashed, inserting user...');
+            run('INSERT INTO users (username, password, display_name) VALUES (?, ?, ?)', [username, hashedPassword, displayName || username]);
+            console.log('[Register] User inserted, querying...');
 
-        const user = queryWithParams('SELECT id, username, display_name, avatar, role FROM users WHERE username = ?', [username])[0];
-        const token = jwt.sign({ userId: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
-        res.json({ token, user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, role: user.role } });
+            const user = queryWithParams('SELECT id, username, display_name, avatar, role FROM users WHERE username = ?', [username])[0];
+            console.log('[Register] User query result:', user);
+            
+            if (!user) {
+                console.log('[Register] User not found after insert!');
+                return res.status(500).json({ error: '注册失败，请重试' });
+            }
+            
+            const token = jwt.sign({ userId: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+            console.log('[Register] Success for user:', username);
+            res.json({ token, user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, role: user.role } });
+        } catch (err) {
+            console.error('[Register] Error:', err.message);
+            return res.status(500).json({ error: '注册失败: ' + err.message });
+        }
     }));
 
     // 登录 - 支持用户名或显示名称登录

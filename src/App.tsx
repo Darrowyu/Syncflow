@@ -77,26 +77,16 @@ function App(): React.ReactElement {
   // 未登录显示登录页
   if (!isAuthenticated) {
     const handleLogin = async (username: string, password: string) => {
+      await login(username, password);
       setIsNewUser(false);
       setShowWelcomeUser(true);
       setActiveTab(Tab.DASHBOARD);
-      try {
-        await login(username, password);
-      } catch (e) {
-        setShowWelcomeUser(false);
-        throw e;
-      }
     };
     const handleRegister = async (username: string, password: string, displayName?: string) => {
+      await register(username, password, displayName);
       setIsNewUser(true);
       setShowWelcomeUser(true);
       setActiveTab(Tab.DASHBOARD);
-      try {
-        await register(username, password, displayName);
-      } catch (e) {
-        setShowWelcomeUser(false);
-        throw e;
-      }
     };
     if (showWelcomeUser) {
       return (

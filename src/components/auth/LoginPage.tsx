@@ -46,12 +46,11 @@ const LoginPage: React.FC<LoginPageProps> = memo(({ onLogin, onRegister }) => {
         return () => clearTimeout(timer);
     }, [username, mode]);
 
-    // 加载已保存的凭据
+    // 加载已保存的用户名（仅记住用户名，不保存密码）
     useEffect(() => {
         const saved = getCredentials();
         if (saved) {
             setUsername(saved.username);
-            setPassword(saved.password);
             setRememberMe(true);
         }
     }, []);

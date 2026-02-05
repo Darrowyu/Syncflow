@@ -1,7 +1,11 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'syncflow_jwt_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('[FATAL] JWT_SECRET environment variable is required');
+    process.exit(1);
+}
 
 // 从环境变量获取默认 API Keys（管理员配置）
 const DEFAULT_GEMINI_KEY = process.env.GEMINI_API_KEY || '';

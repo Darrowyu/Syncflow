@@ -57,21 +57,34 @@ export const parseOrderText = async (text: string): Promise<Partial<Order>[]> =>
   const prompt = `Extract order details from this text. Today is ${new Date().toISOString().split('T')[0]}. If date is missing, assume tomorrow. Return JSON format: {"orders":[{"client":"","styleNo":"","totalTons":0,"piNo":"","containers":0,"port":"","contactPerson":"","requirements":"","date":"YYYY-MM-DD"}]}. Text: "${text}"`;
   const response = await callAI(prompt, true);
   const result = JSON.parse(response || '{}');
-  return (result.orders || []).map((o: Record<string, unknown>) => ({
+  interface ParsedOrder {
+    date?: string;
+    client?: string;
+    styleNo?: string;
+    piNo?: string;
+    totalTons?: number;
+    containers?: number;
+    packagesPerContainer?: number;
+    port?: string;
+    contactPerson?: string;
+    requirements?: string;
+  }
+
+  return (result.orders || []).map((o: ParsedOrder) => ({
     id: generateId(),
-    date: (o.date as string) || new Date().toISOString().split('T')[0],
-    client: (o.client as string) || '',
-    styleNo: (o.styleNo as string) || '',
-    piNo: (o.piNo as string) || '',
-    totalTons: (o.totalTons as number) || 0,
-    containers: (o.containers as number) || 1,
-    packagesPerContainer: (o.packagesPerContainer as number) || 30,
-    port: (o.port as string) || '',
-    contactPerson: (o.contactPerson as string) || '',
-    requirements: (o.requirements as string) || '',
+    date: o.date || new Date().toISOString().split('T')[0],
+    client: o.client || '',
+    styleNo: o.styleNo || '',
+    piNo: o.piNo || '',
+    totalTons: o.totalTons || 0,
+    containers: o.containers || 1,
+    packagesPerContainer: o.packagesPerContainer || 30,
+    port: o.port || '',
+    contactPerson: o.contactPerson || '',
+    requirements: o.requirements || '',
     tradeType: TradeType.GENERAL,
     status: OrderStatus.PENDING,
-    isLargeOrder: ((o.totalTons as number) || 0) > 100,
+    isLargeOrder: (o.totalTons || 0) > 100,
     largeOrderAck: false,
   }));
 };

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": ["Bash"]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "python C:/Users/Darrow/.claude/hooks/skill-activation.py",
+          "timeout": 30
+        }]
+      }
+    ]
+  }
+}

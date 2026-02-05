@@ -9,7 +9,11 @@ import { dirname } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const JWT_SECRET = process.env.JWT_SECRET || 'syncflow_jwt_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('[FATAL] JWT_SECRET environment variable is required');
+    process.exit(1);
+}
 const TOKEN_EXPIRY = '7d';
 
 // 配置头像上传目录

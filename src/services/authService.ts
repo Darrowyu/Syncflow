@@ -51,17 +51,17 @@ export const setStoredUser = (user: User): void => {
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
 };
 
-// 记住密码相关
-export const saveCredentials = (username: string, password: string): void => {
-    localStorage.setItem(REMEMBER_KEY, JSON.stringify({ username, password: btoa(password) }));
+// 记住用户名（安全版本 - 仅保存用户名，不保存密码）
+export const saveCredentials = (username: string, _password?: string): void => {
+    localStorage.setItem(REMEMBER_KEY, JSON.stringify({ username }));
 };
 
-export const getCredentials = (): { username: string; password: string } | null => {
+export const getCredentials = (): { username: string } | null => {
     try {
         const stored = localStorage.getItem(REMEMBER_KEY);
         if (!stored) return null;
-        const { username, password } = JSON.parse(stored);
-        return { username, password: atob(password) };
+        const { username } = JSON.parse(stored);
+        return { username };
     } catch { return null; }
 };
 

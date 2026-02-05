@@ -76,14 +76,14 @@ export async function initDatabase() {
   db.exec("CREATE TABLE IF NOT EXISTS styles (id INTEGER PRIMARY KEY AUTOINCREMENT, style_no TEXT UNIQUE NOT NULL, name TEXT, category TEXT, unit_weight REAL DEFAULT 0, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 
   // 迁移：添加style_changed_at列
-  try { db.exec("ALTER TABLE production_lines ADD COLUMN style_changed_at TEXT"); } catch (e) { }
+  try { db.exec("ALTER TABLE production_lines ADD COLUMN style_changed_at TEXT"); } catch (e) { console.log('[Migration] style_changed_at column may already exist'); }
 
   // 迁移：创建款号变更历史表
   db.exec("CREATE TABLE IF NOT EXISTS style_change_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, line_id INTEGER NOT NULL, from_style TEXT, to_style TEXT NOT NULL, changed_at TEXT NOT NULL)");
 
   // 迁移：添加export_capacity和sub_lines列
-  try { db.exec("ALTER TABLE production_lines ADD COLUMN export_capacity REAL DEFAULT 0"); } catch (e) { }
-  try { db.exec("ALTER TABLE production_lines ADD COLUMN sub_lines TEXT"); } catch (e) { }
+  try { db.exec("ALTER TABLE production_lines ADD COLUMN export_capacity REAL DEFAULT 0"); } catch (e) { console.log('[Migration] export_capacity column may already exist'); }
+  try { db.exec("ALTER TABLE production_lines ADD COLUMN sub_lines TEXT"); } catch (e) { console.log('[Migration] sub_lines column may already exist'); }
 
   // 迁移：从产线表中提取正在使用的款号，自动添加到款号维护表
   try {
@@ -97,7 +97,7 @@ export async function initDatabase() {
         try {
           const subLines = JSON.parse(subLinesJson);
           subLines.forEach(sub => { if (sub.currentStyle && sub.currentStyle !== '-') usedStyles.add(sub.currentStyle); });
-        } catch (e) { }
+        } catch (e) { console.log('[Migration] Failed to parse subLines JSON:', e.message); }
       }
     });
     usedStyles.forEach(styleNo => {
@@ -106,22 +106,22 @@ export async function initDatabase() {
   } catch (e) { console.error('Style migration error:', e); }
 
   // 迁移：添加current_stock列和库存流水表
-  try { db.exec("ALTER TABLE inventory ADD COLUMN current_stock REAL DEFAULT 0"); } catch (e) { }
+  try { db.exec("ALTER TABLE inventory ADD COLUMN current_stock REAL DEFAULT 0"); } catch (e) { console.log('[Migration] current_stock column may already exist'); }
   db.exec("CREATE TABLE IF NOT EXISTS inventory_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, style_no TEXT NOT NULL, type TEXT NOT NULL, quantity REAL NOT NULL, balance REAL NOT NULL, source TEXT, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 
   // 迁移：添加库存等级字段 grade_a(优等品) grade_b(一等品)
-  try { db.exec("ALTER TABLE inventory ADD COLUMN grade_a REAL DEFAULT 0"); } catch (e) { }
-  try { db.exec("ALTER TABLE inventory ADD COLUMN grade_b REAL DEFAULT 0"); } catch (e) { }
-  try { db.exec("ALTER TABLE inventory_transactions ADD COLUMN grade TEXT DEFAULT 'A'"); } catch (e) { }
+  try { db.exec("ALTER TABLE inventory ADD COLUMN grade_a REAL DEFAULT 0"); } catch (e) { console.log('[Migration] grade_a column may already exist'); }
+  try { db.exec("ALTER TABLE inventory ADD COLUMN grade_b REAL DEFAULT 0"); } catch (e) { console.log('[Migration] grade_b column may already exist'); }
+  try { db.exec("ALTER TABLE inventory_transactions ADD COLUMN grade TEXT DEFAULT 'A'"); } catch (e) { console.log('[Migration] grade column may already exist'); }
 
   // 初始化等级数据
-  try { db.exec("UPDATE inventory SET grade_a = current_stock WHERE grade_a = 0 AND current_stock > 0"); } catch (e) { }
+  try { db.exec("UPDATE inventory SET grade_a = current_stock WHERE grade_a = 0 AND current_stock > 0"); } catch (e) { console.log('[Migration] Failed to initialize grade_a data:', e.message); }
 
   // 迁移：添加仓库类型和包装规格字段
-  try { db.exec("ALTER TABLE inventory ADD COLUMN warehouse_type TEXT DEFAULT 'general'"); } catch (e) { }
-  try { db.exec("ALTER TABLE inventory ADD COLUMN package_spec TEXT DEFAULT '820kg'"); } catch (e) { }
-  try { db.exec("ALTER TABLE inventory_transactions ADD COLUMN warehouse_type TEXT DEFAULT 'general'"); } catch (e) { }
-  try { db.exec("ALTER TABLE inventory_transactions ADD COLUMN package_spec TEXT DEFAULT '820kg'"); } catch (e) { }
+  try { db.exec("ALTER TABLE inventory ADD COLUMN warehouse_type TEXT DEFAULT 'general'"); } catch (e) { console.log('[Migration] warehouse_type column may already exist'); }
+  try { db.exec("ALTER TABLE inventory ADD COLUMN package_spec TEXT DEFAULT '820kg'"); } catch (e) { console.log('[Migration] package_spec column may already exist'); }
+  try { db.exec("ALTER TABLE inventory_transactions ADD COLUMN warehouse_type TEXT DEFAULT 'general'"); } catch (e) { console.log('[Migration] warehouse_type(transaction) column may already exist'); }
+  try { db.exec("ALTER TABLE inventory_transactions ADD COLUMN package_spec TEXT DEFAULT '820kg'"); } catch (e) { console.log('[Migration] package_spec(transaction) column may already exist'); }
 
   // 迁移：重建inventory表以支持复合唯一约束
   try {
@@ -145,18 +145,18 @@ export async function initDatabase() {
   } catch (e) { console.error('[Migration] Inventory table rebuild error:', e.message); }
 
   // 其他迁移逻辑继续...
-  try { db.exec("ALTER TABLE incidents ADD COLUMN resolved INTEGER DEFAULT 0"); } catch (e) { }
-  try { db.exec("ALTER TABLE incidents ADD COLUMN resolved_at TEXT"); } catch (e) { }
-  try { db.exec("ALTER TABLE inventory ADD COLUMN safety_stock REAL DEFAULT 0"); } catch (e) { }
-  try { db.exec("ALTER TABLE inventory ADD COLUMN last_updated TEXT"); } catch (e) { }
-  try { db.exec("ALTER TABLE inventory_transactions ADD COLUMN order_id TEXT"); } catch (e) { }
+  try { db.exec("ALTER TABLE incidents ADD COLUMN resolved INTEGER DEFAULT 0"); } catch (e) { console.log('[Migration] resolved column may already exist'); }
+  try { db.exec("ALTER TABLE incidents ADD COLUMN resolved_at TEXT"); } catch (e) { console.log('[Migration] resolved_at column may already exist'); }
+  try { db.exec("ALTER TABLE inventory ADD COLUMN safety_stock REAL DEFAULT 0"); } catch (e) { console.log('[Migration] safety_stock column may already exist'); }
+  try { db.exec("ALTER TABLE inventory ADD COLUMN last_updated TEXT"); } catch (e) { console.log('[Migration] last_updated column may already exist'); }
+  try { db.exec("ALTER TABLE inventory_transactions ADD COLUMN order_id TEXT"); } catch (e) { console.log('[Migration] order_id column may already exist'); }
 
   db.exec("CREATE TABLE IF NOT EXISTS inventory_audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, style_no TEXT NOT NULL, warehouse_type TEXT DEFAULT 'general', package_spec TEXT DEFAULT '820kg', line_id INTEGER, line_name TEXT, action TEXT NOT NULL, before_grade_a REAL DEFAULT 0, before_grade_b REAL DEFAULT 0, after_grade_a REAL DEFAULT 0, after_grade_b REAL DEFAULT 0, reason TEXT, operator TEXT DEFAULT 'system', created_at TEXT DEFAULT CURRENT_TIMESTAMP)");
 
-  try { db.exec("ALTER TABLE inventory_audit_logs ADD COLUMN line_id INTEGER"); } catch (e) { }
-  try { db.exec("ALTER TABLE inventory_audit_logs ADD COLUMN line_name TEXT"); } catch (e) { }
+  try { db.exec("ALTER TABLE inventory_audit_logs ADD COLUMN line_id INTEGER"); } catch (e) { console.log('[Migration] line_id(audit_logs) column may already exist'); }
+  try { db.exec("ALTER TABLE inventory_audit_logs ADD COLUMN line_name TEXT"); } catch (e) { console.log('[Migration] line_name(audit_logs) column may already exist'); }
   db.exec("CREATE INDEX IF NOT EXISTS idx_inventory_audit_logs_line_id ON inventory_audit_logs(line_id)");
-  try { db.exec("ALTER TABLE orders ADD COLUMN line_ids TEXT"); } catch (e) { }
+  try { db.exec("ALTER TABLE orders ADD COLUMN line_ids TEXT"); } catch (e) { console.log('[Migration] line_ids column may already exist'); }
 
   // 索引优化
   db.exec("CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(date)");
@@ -170,13 +170,13 @@ export async function initDatabase() {
   db.exec("CREATE INDEX IF NOT EXISTS idx_inventory_audit_logs_style_no ON inventory_audit_logs(style_no)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_inventory_safety_stock ON inventory(safety_stock)");
 
-  try { db.exec("ALTER TABLE orders ADD COLUMN package_spec TEXT"); } catch (e) { }
+  try { db.exec("ALTER TABLE orders ADD COLUMN package_spec TEXT"); } catch (e) { console.log('[Migration] package_spec(orders) column may already exist'); }
   db.exec("CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, contact_person TEXT, phone TEXT, email TEXT, address TEXT, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_orders_client ON orders(client)");
-  try { db.exec("ALTER TABLE orders ADD COLUMN warehouse_allocation TEXT"); } catch (e) { }
-  try { db.exec("ALTER TABLE inventory ADD COLUMN line_id INTEGER"); } catch (e) { }
-  try { db.exec("ALTER TABLE inventory ADD COLUMN line_name TEXT"); } catch (e) { }
+  try { db.exec("ALTER TABLE orders ADD COLUMN warehouse_allocation TEXT"); } catch (e) { console.log('[Migration] warehouse_allocation column may already exist'); }
+  try { db.exec("ALTER TABLE inventory ADD COLUMN line_id INTEGER"); } catch (e) { console.log('[Migration] line_id(inventory) column may already exist'); }
+  try { db.exec("ALTER TABLE inventory ADD COLUMN line_name TEXT"); } catch (e) { console.log('[Migration] line_name(inventory) column may already exist'); }
 
   // 从订单中提取客户
   try {

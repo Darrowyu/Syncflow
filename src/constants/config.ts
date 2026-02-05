@@ -15,6 +15,8 @@ export const CACHE_TTL = {
     default: 30000,    // 默认缓存30秒
 } as const;
 
+export const CACHE_MAX_SIZE = 1000; // 缓存最大条目数，防止内存溢出
+
 // ========== 分页配置 ==========
 export const PAGINATION = {
     defaultPageSize: 50,    // 默认每页条数

@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 try {
                     const serverConfig = await getServerAIConfig();
                     if (serverConfig) saveLocalAIConfig(serverConfig as AIConfig);
-                } catch { }
+                } catch (e) { console.error('[Auth] Failed to sync AI config from server:', e); }
             }
             setLoading(false);
         };
@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
             const serverConfig = await getServerAIConfig();
             if (serverConfig) saveLocalAIConfig(serverConfig as AIConfig);
-        } catch { }
+        } catch (e) { console.error('[Auth] Failed to sync AI config after login:', e); }
     };
 
     const register = async (username: string, password: string, displayName?: string) => {

@@ -9,11 +9,14 @@ import { dirname } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-    console.error('[FATAL] JWT_SECRET environment variable is required');
-    process.exit(1);
-}
+const getJwtSecret = () => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        console.error('[FATAL] JWT_SECRET environment variable is required');
+        process.exit(1);
+    }
+    return secret;
+};
 const TOKEN_EXPIRY = '7d';
 
 // 配置头像上传目录
@@ -40,6 +43,7 @@ const upload = multer({
 });
 
 export const setupAuthRoutes = (queryWithParams, query, run, asyncHandler, getDb) => {
+    const JWT_SECRET = getJwtSecret(); // 在函数内部获取，确保 dotenv 已加载
     const router = express.Router();
 
     // 初始化用户表
@@ -382,4 +386,5 @@ export const setupAuthRoutes = (queryWithParams, query, run, asyncHandler, getDb
     return router;
 };
 
-export const JWT_SECRET_KEY = JWT_SECRET;
+// 导出获取函数供其他模块使用
+export { getJwtSecret };

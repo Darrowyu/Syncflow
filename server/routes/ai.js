@@ -1,17 +1,21 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-    console.error('[FATAL] JWT_SECRET environment variable is required');
-    process.exit(1);
-}
+const getJwtSecret = () => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        console.error('[FATAL] JWT_SECRET environment variable is required');
+        process.exit(1);
+    }
+    return secret;
+};
 
 // 从环境变量获取默认 API Keys（管理员配置）
 const DEFAULT_GEMINI_KEY = process.env.GEMINI_API_KEY || '';
 const DEFAULT_DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY || '';
 
 export const setupAIRoutes = (queryWithParams, asyncHandler) => {
+    const JWT_SECRET = getJwtSecret(); // 在函数内部获取，确保 dotenv 已加载
     const router = express.Router();
 
     // 验证用户身份并获取用户信息

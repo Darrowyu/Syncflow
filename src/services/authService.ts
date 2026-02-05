@@ -259,3 +259,22 @@ export const deleteUser = async (userId: number): Promise<void> => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '删除用户失败');
 };
+
+// 管理员创建用户
+export interface CreateUserData {
+    username: string;
+    password: string;
+    displayName?: string;
+    role?: 'admin' | 'user';
+}
+
+export async function createUser(userData: CreateUserData): Promise<UserListItem> {
+    const res = await fetch(`${API_BASE}/api/auth/users`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '创建用户失败');
+    return data.user;
+}

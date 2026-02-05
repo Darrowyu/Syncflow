@@ -325,6 +325,42 @@ export const setupAuthRoutes = (queryWithParams, query, run, asyncHandler, getDb
 
     // ========== 用户管理API（仅管理员） ==========
 
+    // 管理员创建用户
+    router.post('/users', requireAdmin, asyncHandler(async (req, res) => {
+        const { username, password, displayName, role = 'user' } = req.body;
+        
+        const errors = [
+            !username || !password ? '用户名和密码不能为空' : null,
+            username.length < 3 ? '用户名至少3个字符' : null,
+            password.length < 6 ? '密码至少6个字符' : null,
+            !['admin', 'user'].includes(role) ? '无效的角色' : null,
+        ].filter(Boolean);
+        
+        if (errors.length > 0) return res.status(400).json({ error: errors[0] });
+
+        const existing = queryWithParams('SELECT id FROM users WHERE username = ?', [username]);
+        if (existing.length > 0) return res.status(409).json({ error: '用户名已存在' });
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        run('INSERT INTO users (username, password, display_name, role) VALUES (?, ?, ?, ?)', 
+            [username, hashedPassword, displayName || username, role]);
+        
+        const newUser = queryWithParams('SELECT id, username, display_name, avatar, role, created_at, updated_at FROM users WHERE username = ?', [username])[0];
+        
+        res.json({ 
+            success: true, 
+            user: { 
+                id: newUser.id, 
+                username: newUser.username, 
+                displayName: newUser.display_name, 
+                avatar: newUser.avatar, 
+                role: newUser.role, 
+                createdAt: newUser.created_at, 
+                updatedAt: newUser.updated_at 
+            } 
+        });
+    }));
+
     // 获取所有用户列表
     router.get('/users', requireAdmin, asyncHandler(async (req, res) => {
         const users = queryWithParams('SELECT id, username, display_name, avatar, role, created_at, updated_at FROM users ORDER BY created_at DESC', []);

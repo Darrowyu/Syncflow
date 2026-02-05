@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Download, Upload, AlertTriangle, Check, Keyboard, Moon, Sun, Monitor, Bot, RotateCcw, Edit3, User, Lock, Loader2, Camera, Trash2, Users, Shield, Key, UserX, Eye, EyeOff } from 'lucide-react';
 import { downloadBackup, restoreBackup } from '../../services/api';
 import { getAIConfig, saveAIConfig, AIProvider } from '../../services';
-import { changePassword, getUsers, updateUserRole, resetUserPassword, deleteUser, UserListItem, getAssetUrl, saveServerAIConfig, getServerAIConfig } from '../../services/authService';
+import { changePassword, getUsers, updateUserRole, resetUserPassword, deleteUser, createUser, UserListItem, getAssetUrl, saveServerAIConfig, getServerAIConfig } from '../../services/authService';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../i18n';
@@ -52,6 +52,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
     const [isLoadingUsers, setIsLoadingUsers] = useState(false);
     const [resetPasswordUserId, setResetPasswordUserId] = useState<number | null>(null);
     const [resetPasswordValue, setResetPasswordValue] = useState('');
+    const [showCreateUser, setShowCreateUser] = useState(false);
+    const [newUserData, setNewUserData] = useState({ username: '', password: '', displayName: '', role: 'user' as 'admin' | 'user' });
 
     // AI API 密钥状态
     const [geminiKey, setGeminiKey] = useState('');
@@ -296,6 +298,33 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
             setMessage({ type: 'error', text: (e as Error).message });
         }
     };
+
+    async function handleCreateUser() {
+        const { username, password } = newUserData;
+        
+        if (!username || !password) {
+            setMessage({ type: 'error', text: '用户名和密码不能为空' });
+            return;
+        }
+        if (username.length < 3) {
+            setMessage({ type: 'error', text: '用户名至少3个字符' });
+            return;
+        }
+        if (password.length < 6) {
+            setMessage({ type: 'error', text: '密码至少6个字符' });
+            return;
+        }
+        
+        try {
+            await createUser(newUserData);
+            setMessage({ type: 'success', text: `用户 "${username}" 创建成功` });
+            setShowCreateUser(false);
+            setNewUserData({ username: '', password: '', displayName: '', role: 'user' });
+            loadUsers();
+        } catch (e) {
+            setMessage({ type: 'error', text: (e as Error).message });
+        }
+    }
 
     const tabs = [
         { key: 'account' as SettingsTab, label: t('tab_account'), icon: <User size={18} /> },
@@ -613,10 +642,39 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onRefresh, hotkeys, updateH
                                 <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center">
                                     <Users size={18} className="mr-2 text-violet-500" />{t('tab_users') || '用户管理'}
                                 </h3>
-                                <button onClick={loadUsers} disabled={isLoadingUsers} className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition">
-                                    <RotateCcw size={14} className={`mr-1.5 ${isLoadingUsers ? 'animate-spin' : ''}`} />刷新
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setShowCreateUser(true)} className="text-sm text-green-600 hover:text-green-700 dark:text-green-400 flex items-center px-3 py-1.5 bg-green-50 dark:bg-green-900/30 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition">
+                                        <Users size={14} className="mr-1.5" />新建用户
+                                    </button>
+                                    <button onClick={loadUsers} disabled={isLoadingUsers} className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition">
+                                        <RotateCcw size={14} className={`mr-1.5 ${isLoadingUsers ? 'animate-spin' : ''}`} />刷新
+                                    </button>
+                                </div>
                             </div>
+
+                            {/* 创建用户表单 */}
+                            {showCreateUser && (
+                                <div className="mb-6 p-4 bg-green-50/50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                                    <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">创建新用户</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                        {[
+                                            { type: 'text', key: 'username', placeholder: '用户名(必填)' },
+                                            { type: 'text', key: 'displayName', placeholder: '显示名称' },
+                                            { type: 'password', key: 'password', placeholder: '密码(至少6位)' }
+                                        ].map(({ type, key, placeholder }) => (
+                                            <input key={key} type={type} placeholder={placeholder} value={newUserData[key as keyof typeof newUserData]} onChange={e => setNewUserData(d => ({ ...d, [key]: e.target.value }))} className="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                        ))}
+                                        <select value={newUserData.role} onChange={e => setNewUserData(d => ({ ...d, role: e.target.value as 'admin' | 'user' }))} className="px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                                            <option value="user">普通用户</option>
+                                            <option value="admin">管理员</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={handleCreateUser} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition">创建</button>
+                                        <button onClick={() => { setShowCreateUser(false); setNewUserData({ username: '', password: '', displayName: '', role: 'user' }); }} className="px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition">取消</button>
+                                    </div>
+                                </div>
+                            )}
                             {isLoadingUsers ? (
                                 <div className="flex items-center justify-center py-12">
                                     <Loader2 size={24} className="animate-spin text-blue-500" />

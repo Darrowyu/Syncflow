@@ -42,7 +42,9 @@ export interface FulfillmentOptions {
 // 解析订单的产线ID列表
 const parseOrderLineIds = (order: Order): number[] => {
   if (order.lineIds) { // 多产线格式：如 "1/2" 或 "1,2,3"
-    return order.lineIds.split(/[\/,]/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+    // 兼容 lineIds 可能是数字或其他类型的情况
+    const lineIdsStr = String(order.lineIds);
+    return lineIdsStr.split(/[\/,]/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
   }
   if (order.lineId) return [order.lineId];
   return []; // 空数组表示不限产线

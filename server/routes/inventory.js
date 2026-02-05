@@ -29,11 +29,11 @@ const paginate = (query, queryWithParams, table, fields, req) => {
   if (req.query.startDate) { conditions.push('created_at >= ?'); params.push(req.query.startDate); }
   if (req.query.endDate) { conditions.push('created_at <= ?'); params.push(req.query.endDate + 'T23:59:59'); }
   if (req.query.action) { conditions.push('action = ?'); params.push(req.query.action); }
-  if (req.query.lineId) { conditions.push('line_id = ?'); params.push(parseInt(req.query.lineId)); }
+  if (req.query.lineId) { conditions.push('line_id = ?'); params.push(parseInt(String(req.query.lineId))); }
   
   const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : '';
-  const page = parseInt(req.query.page) || 1;
-  const size = parseInt(req.query.pageSize) || 50;
+  const page = parseInt(String(req.query.page)) || 1;
+  const size = parseInt(String(req.query.pageSize)) || 50;
   const total = (params.length ? queryWithParams(`SELECT COUNT(*) as total FROM ${table}${where}`, params) : query(`SELECT COUNT(*) as total FROM ${table}${where}`))[0]?.total || 0;
   const rows = queryWithParams(`SELECT ${fields} FROM ${table}${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`, [...params, size, (page - 1) * size]);
   return { data: rows, total, page, pageSize: size, totalPages: Math.ceil(total / size) };
@@ -42,7 +42,7 @@ const paginate = (query, queryWithParams, table, fields, req) => {
 export const setupInventoryRoutes = (queryWithParams, query, run, runNoSave, withTx, asyncHandler) => {
   // 库存列表
   router.get('/', asyncHandler((req, res) => {
-    const params = req.query.lineId ? [parseInt(req.query.lineId)] : [];
+    const params = req.query.lineId ? [parseInt(String(req.query.lineId))] : [];
     const sql = 'SELECT style_no as styleNo, warehouse_type as warehouseType, package_spec as packageSpec, current_stock as currentStock, grade_a as gradeA, grade_b as gradeB, stock_t_minus_1 as stockTMinus1, locked_for_today as lockedForToday, safety_stock as safetyStock, last_updated as lastUpdated, line_id as lineId, line_name as lineName FROM inventory' + (params.length ? ' WHERE line_id = ?' : '') + ' ORDER BY style_no, line_id';
     const rows = params.length ? queryWithParams(sql, params) : query(sql);
     res.json(rows.map(r => ({ ...r, warehouseType: r.warehouseType || DEFAULTS.warehouseType, packageSpec: r.packageSpec || DEFAULTS.packageSpec, gradeA: r.gradeA || 0, gradeB: r.gradeB || 0, safetyStock: r.safetyStock || 0 })));

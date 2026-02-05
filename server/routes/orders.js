@@ -16,6 +16,11 @@ const BOOL_FIELDS = ['isLargeOrder', 'largeOrderAck'];
 const JSON_FIELDS = ['warehouseAllocation'];
 const now = () => new Date().toISOString();
 
+// 安全的 JSON 解析
+const safeJSONParse = (str, defaultValue = null) => {
+  try { return str ? JSON.parse(str) : defaultValue; } catch { return defaultValue; }
+};
+
 // 解析产线ID
 const parseLineIds = (order) => {
   if (order.lineIds) return order.lineIds.split(/[\/,]/).map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
@@ -28,7 +33,7 @@ const calcFulfillment = (order, query) => {
   const styleNo = order.styleNo || order.style_no;
   const tradeType = order.tradeType || order.trade_type;
   const totalTons = order.totalTons || order.total_tons || 0;
-  const alloc = order.warehouseAllocation || (order.warehouse_allocation ? JSON.parse(order.warehouse_allocation) : null);
+  const alloc = order.warehouseAllocation || safeJSONParse(order.warehouse_allocation);
   
   const getStock = (whType) => {
     let sql = 'SELECT COALESCE(SUM(current_stock - locked_for_today), 0) as available FROM inventory WHERE style_no = ? AND warehouse_type = ?';
@@ -64,7 +69,7 @@ export const setupOrderRoutes = (queryWithParams, query, run, runNoSave, withTx,
   // 查询所有订单
   const listOrders = () => {
     const fields = DB_COLUMNS.join(', ').replace(/style_no/g, 'style_no as styleNo').replace(/package_spec/g, 'package_spec as packageSpec').replace(/pi_no/g, 'pi_no as piNo').replace(/line_id/g, 'line_id as lineId').replace(/line_ids/g, 'line_ids as lineIds').replace(/bl_no/g, 'bl_no as blNo').replace(/total_tons/g, 'total_tons as totalTons').replace(/packages_per_container/g, 'packages_per_container as packagesPerContainer').replace(/contact_person/g, 'contact_person as contactPerson').replace(/trade_type/g, 'trade_type as tradeType').replace(/is_large_order/g, 'is_large_order as isLargeOrder').replace(/large_order_ack/g, 'large_order_ack as largeOrderAck').replace(/loading_time_slot/g, 'loading_time_slot as loadingTimeSlot').replace(/expected_ship_date/g, 'expected_ship_date as expectedShipDate').replace(/workshop_comm_status/g, 'workshop_comm_status as workshopCommStatus').replace(/workshop_note/g, 'workshop_note as workshopNote').replace(/prep_days_required/g, 'prep_days_required as prepDaysRequired').replace(/warehouse_allocation/g, 'warehouse_allocation as warehouseAllocation');
-    return query(`SELECT id, date, client, ${fields} FROM orders ORDER BY date DESC`).map(r => ({ ...r, isLargeOrder: !!r.isLargeOrder, largeOrderAck: !!r.largeOrderAck, lineIds: r.lineIds != null ? String(r.lineIds) : null, warehouseAllocation: r.warehouseAllocation ? JSON.parse(r.warehouseAllocation) : null }));
+    return query(`SELECT id, date, client, ${fields} FROM orders ORDER BY date DESC`).map(r => ({ ...r, isLargeOrder: !!r.isLargeOrder, largeOrderAck: !!r.largeOrderAck, lineIds: r.lineIds != null ? String(r.lineIds) : null, warehouseAllocation: safeJSONParse(r.warehouseAllocation) }));
   };
 
   router.get('/', asyncHandler((_, res) => res.json(listOrders())));

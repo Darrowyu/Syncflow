@@ -45,7 +45,7 @@ const Dashboard: React.FC<DashboardProps> = ({ orders, inventory, lines, inciden
     map.set('unassigned', { count: 0, tons: 0 });
     lines.forEach(l => map.set(l.name, { count: 0, tons: 0 }));
     pendingOrders.forEach(o => {
-      const lineIds = o.lineIds ? o.lineIds.split(/[\/,]/).map(s => parseInt(s.trim())) : (o.lineId ? [o.lineId] : []);
+      const lineIds = o.lineIds ? o.lineIds.split(/[\/,]/).map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : (o.lineId ? [o.lineId] : []);
       if (lineIds.length === 0) {
         const v = map.get('unassigned')!; v.count++; v.tons += o.totalTons;
       } else {
